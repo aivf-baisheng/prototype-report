@@ -25,11 +25,25 @@
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.nav-icon:hover {
+  transform: scale(1.1);
+}
+
+.nav-icon.active {
+  stroke: var(--blue-400);
+  transform: scale(1.1);
+}
+
+.nav-icon.active path {
+  stroke: var(--blue-400);
 }
 
 /* CSS Variables */
 :root {
   --slate-200: #E2E8F0;
   --white: #FFF;
+  --blue-400: #60A5FA;
 }
