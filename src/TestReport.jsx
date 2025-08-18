@@ -1,6 +1,356 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const EditableCell = ({ prompt, type, onEdit }) => {
+const defaultColumnConfig = {
+  main: {
+    bundle: { minWidth: 120, flex: 1.5 },
+    recipe: { minWidth: 80, flex: 0.8 },
+    prompt: { minWidth: 200, flex: 2.2 },
+    target: { minWidth: 180, flex: 1.8 },
+    response: { minWidth: 140, flex: 1.2 },
+    score: { minWidth: 70, flex: 0.6 },
+    notes: { minWidth: 80, flex: 0.8 }
+  },
+  popup: {
+    recipe: { minWidth: 80, flex: 0.8 },
+    prompt: { minWidth: 250, flex: 2.2 },
+    target: { minWidth: 220, flex: 1.8 },
+    response: { minWidth: 140, flex: 1.2 },
+    score: { minWidth: 70, flex: 0.6, gap: 8 },
+    notes: { minWidth: 80, flex: 0.8 }
+  }
+};
+
+const generateGridTemplateColumns = (config, isPopup) => {
+  const configToUse = isPopup ? config.popup : config.main;
+  return Object.entries(configToUse)
+    .map(([key, value]) => `minmax(${value.minWidth}px, ${value.flex}fr)`)
+    .join(' ');
+};
+
+const DataTable = ({ 
+  data, 
+  loading, 
+  error, 
+  searchTerm, 
+  setSearchTerm,
+  selectedView,
+  setSelectedView,
+  selectedBundles,
+  setSelectedBundles,
+  selectedRecipes,
+  setSelectedRecipes,
+  selectedScores,
+  setSelectedScores,
+  isFilterOpen,
+  setIsFilterOpen,
+  editingPrompt,
+  setEditingPrompt,
+  editDropdownRef,
+  bundleFilterRef,
+  recipeFilterRef,
+  scoreFilterRef,
+  fetchBundleData,
+  showBundleFilter = true,
+  columnConfig = defaultColumnConfig,
+  isPopup = false
+}) => {
+  const gridStyle = {
+    gridTemplateColumns: generateGridTemplateColumns(columnConfig, isPopup)
+  };
+  console.log('DataTable data:', data);
+
+  const filterData = (data) => {
+    let filteredData = structuredClone(data);
+    
+    // Add unique IDs to prompts if they don't have them
+    filteredData.forEach((bundle, bundleIndex) => {
+      bundle.recipes.forEach((recipe, recipeIndex) => {
+        recipe.prompts.forEach((prompt, promptIndex) => {
+          if (!prompt.id) {
+            prompt.id = `${bundleIndex}-${recipeIndex}-${promptIndex}`;
+          }
+        });
+      });
+    });
+    
+    // Apply all active filters to each prompt
+    filteredData = filteredData.map(bundle => {
+      const filteredRecipes = bundle.recipes.map(recipe => {
+        const filteredPrompts = recipe.prompts.filter(prompt => {
+          const matchesBundle = selectedBundles.length === 0 || selectedBundles.includes(bundle.name);
+          const matchesRecipe = selectedRecipes.length === 0 || selectedRecipes.includes(recipe.name);
+          const matchesScore = selectedScores.length === 0 || selectedScores.includes(prompt.score);
+          
+          let matchesSearch = true;
+          if (searchTerm) {
+            const searchLower = searchTerm.toLowerCase();
+            matchesSearch = 
+              prompt.prompt_message?.toLowerCase().includes(searchLower) ||
+              prompt.target?.toLowerCase().includes(searchLower) ||
+              prompt.response?.toLowerCase().includes(searchLower) ||
+              prompt.notes?.toLowerCase().includes(searchLower) ||
+              bundle.name.toLowerCase().includes(searchLower) ||
+              recipe.name.toLowerCase().includes(searchLower);
+          }
+
+          return matchesBundle && matchesRecipe && matchesScore && matchesSearch;
+        });
+
+        return {
+          ...recipe,
+          prompts: filteredPrompts
+        };
+      }).filter(recipe => recipe.prompts.length > 0); // Remove recipes with no matching prompts
+
+      return {
+        ...bundle,
+        recipes: filteredRecipes
+      };
+    }).filter(bundle => bundle.recipes.length > 0); // Remove bundles with no matching recipes
+
+    return filteredData;
+  };
+
+  console.log('DataTable filtered data:', filterData(data));
+  return (
+    <div className="data-table-section">
+      <div className="table-controls">
+        <div className="filter-controls">
+          <span className="filter-label">Filter:</span>
+          {showBundleFilter && (
+            <div className="filter-tag" ref={bundleFilterRef} onClick={() => setIsFilterOpen(current => current === 'bundles' ? null : 'bundles')}>
+              <span className="tag-label">Bundles</span>
+              <span className="tag-count">
+                {selectedBundles.length ? `Selected (${selectedBundles.length})` : 'All'}
+              </span>
+              {isFilterOpen === 'bundles' && (
+                <div className="filter-dropdown">
+                  {data.map(bundle => bundle.name)
+                  .filter((name, index, self) => self.indexOf(name) === index)
+                  .map(bundleName => (
+                    <div 
+                      key={bundleName} 
+                      className={`filter-item ${selectedBundles.includes(bundleName) ? 'selected' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedBundles(prev => 
+                          prev.includes(bundleName) 
+                            ? prev.filter(b => b !== bundleName)
+                            : [...prev, bundleName]
+                        );
+                      }}
+                    >
+                      <span>{bundleName}</span>
+                      {selectedBundles.includes(bundleName) && (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                          <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          <div className="filter-tag" ref={recipeFilterRef} onClick={() => setIsFilterOpen(current => current === 'recipes' ? null : 'recipes')}>
+            <span className="tag-label">Recipes</span>
+            <span className="tag-count">
+              {selectedRecipes.length ? `Selected (${selectedRecipes.length})` : 'All'}
+            </span>
+            {isFilterOpen === 'recipes' && (
+              <div className="filter-dropdown">
+                {data.flatMap(bundle => 
+                  bundle.recipes.map(recipe => recipe.name)
+                ).filter((name, index, self) => self.indexOf(name) === index)
+                .map(recipeName => (
+                  <div 
+                    key={recipeName} 
+                    className={`filter-item ${selectedRecipes.includes(recipeName) ? 'selected' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedRecipes(prev => 
+                        prev.includes(recipeName) 
+                          ? prev.filter(r => r !== recipeName)
+                          : [...prev, recipeName]
+                      );
+                    }}
+                  >
+                    <span>{recipeName}</span>
+                    {selectedRecipes.includes(recipeName) && (
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="filter-tag" ref={scoreFilterRef} onClick={() => setIsFilterOpen(current => current === 'scores' ? null : 'scores')}>
+            <span className="tag-label">Scores</span>
+            <span className="tag-count">
+              {selectedScores.length ? `Selected (${selectedScores.length})` : 'All'}
+            </span>
+            {isFilterOpen === 'scores' && (
+              <div className="filter-dropdown">
+                {[0, 1].map(score => (
+                  <div 
+                    key={score} 
+                    className={`filter-item ${selectedScores.includes(score) ? 'selected' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedScores(prev => 
+                        prev.includes(score) 
+                          ? prev.filter(s => s !== score)
+                          : [...prev, score]
+                      );
+                    }}
+                  >
+                    <span>{score}</span>
+                    {selectedScores.includes(score) && (
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="view-controls">
+          <div className="view-toggle">
+            <button className={`toggle-button ${selectedView === 'list' ? 'active' : ''}`} onClick={() => setSelectedView('list')}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6.66667 9.33337H2V14H6.66667V9.33337Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M6.66667 2H2V6.66667H6.66667V2Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9.33337 2.66663H14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9.33337 6H14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9.33337 10H14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9.33337 13.3334H14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span>List</span>
+            </button>
+            <button className={`toggle-button ${selectedView === 'table' ? 'active' : ''}`} onClick={() => setSelectedView('table')}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 2H3.33333C2.97971 2 2.64057 2.14048 2.39052 2.39052C2.14048 2.64057 2 2.97971 2 3.33333V6M6 2H12.6667C13.0203 2 13.3594 2.14048 13.6095 2.39052C13.8595 2.64057 14 2.97971 14 3.33333V6M6 2V14M2 6V12.6667C2 13.0203 2.14048 13.3594 2.39052 13.6095C2.64057 13.8595 2.97971 14 3.33333 14H6M2 6H14M14 6V12.6667C14 13.0203 13.8595 13.3594 13.6095 13.6095C13.3594 13.8595 13.0203 14 12.6667 14H6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span>Table</span>
+            </button>
+          </div>
+          <div className="search-box">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z" stroke="#334155" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M14 14L11.1 11.1" stroke="#334155" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="columns-button">
+            <span>Columns</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M12.6667 2H3.33333C2.59695 2 2 2.59695 2 3.33333V12.6667C2 13.403 2.59695 14 3.33333 14H12.6667C13.403 14 14 13.403 14 12.6667V3.33333C14 2.59695 13.403 2 12.6667 2Z" stroke="#334155" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M8 2V14" stroke="#334155" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div className="prompts-count">216,906 prompts</div>
+
+      {/* Data Table */}
+      <div className="data-table">
+        <div className="table-header" style={gridStyle}>
+          {showBundleFilter && <div className="header-cell bundle-header">Bundle</div>}
+          <div className="header-cell recipe-header">Recipe</div>
+          <div className="header-cell prompt-header">Prompt</div>
+          <div className="header-cell target-header">Target</div>
+          <div className="header-cell response-header">Response</div>
+          <div className="header-cell score-header">
+            <span>Score</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M7.33337 7.33337H10" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M7.33337 10H12" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M7.33337 12.6666H14" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M6 4.66663L4 2.66663L2 4.66663" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M4 4V13.3333" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <div className="header-cell notes-header">Notes</div>
+        </div>
+
+        {loading ? (
+          <div>Loading data...</div>
+        ) : error ? (
+          <div>Error: {error}</div>
+        ) : (
+          filterData(data).map((bundle) => 
+            bundle.recipes.map((recipe) =>
+              recipe.prompts.map((prompt, promptIndex) => (
+                <div key={`${bundle.name}-${recipe.name}-${promptIndex}`} 
+                     className={`table-row ${promptIndex === 0 ? 'highlighted-row' : ''}`}
+                     style={gridStyle}>
+                  {showBundleFilter && <div className="table-cell">{bundle.name}</div>}
+                  <div className="table-cell">{recipe.name}</div>
+                  <div className="table-cell prompt-text">{prompt.prompt_message}</div>
+                  <div className="table-cell">{prompt.target}</div>
+                  <div className="table-cell">{prompt.response}</div>
+                  <EditableCell 
+                    prompt={prompt}
+                    type="score"
+                    showCheckIcon={promptIndex === 0}
+                    onEdit={(element) => {
+                      setEditingPrompt(editingPrompt?.id === prompt.id ? null : {
+                        id: prompt.id,
+                        score: prompt.score,
+                        notes: prompt.notes,
+                        element,
+                        isScoreOpen: false
+                      });
+                    }}
+                  />
+                  <EditableCell 
+                    prompt={prompt}
+                    type="notes"
+                    onEdit={(element) => {
+                      setEditingPrompt(editingPrompt?.id === prompt.id ? null : {
+                        id: prompt.id,
+                        score: prompt.score,
+                        notes: prompt.notes,
+                        element,
+                        isScoreOpen: false
+                      });
+                    }}
+                  />
+                  {editingPrompt?.id === prompt.id && (
+                    <EditDropdown 
+                      editingPrompt={editingPrompt}
+                      editDropdownRef={editDropdownRef}
+                      onClose={(shouldRefresh) => {
+                        setEditingPrompt(null);
+                        if (shouldRefresh) {
+                          fetchBundleData();
+                        }
+                      }}
+                      onSave={setEditingPrompt}
+                    />
+                  )}
+                </div>
+              ))
+            )
+          )
+        )}
+      </div>
+    </div>
+  );
+};
+
+const EditableCell = ({ prompt, type, onEdit, showCheckIcon }) => {
   const isScore = type === 'score';
   
   return (
@@ -12,11 +362,20 @@ const EditableCell = ({ prompt, type, onEdit }) => {
       }}
       style={{ cursor: 'pointer' }}
     >
-      {isScore ? (
-        <div className={`score-badge ${prompt.score === 1 ? 'success' : 'error'}`}>
-          <span>{prompt.score}</span>
-        </div>
-      ) : prompt.notes}
+      <div className="cell-content">
+        {isScore ? (
+          <div className={`score-badge ${prompt.score === 1 ? 'success' : 'error'}`}>
+            <span>{prompt.score}</span>
+          </div>
+        ) : prompt.notes}
+        {showCheckIcon && (
+          <svg className="user-check-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M13.3333 17.5V15.8333C13.3333 14.9493 12.9821 14.1014 12.357 13.4763C11.7319 12.8512 10.884 12.5 9.99996 12.5H4.99996C4.1159 12.5 3.26806 12.8512 2.64294 13.4763C2.01782 14.1014 1.66663 14.9493 1.66663 15.8333V17.5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M7.49996 9.16667C9.34091 9.16667 10.8333 7.67428 10.8333 5.83333C10.8333 3.99238 9.34091 2.5 7.49996 2.5C5.65901 2.5 4.16663 3.99238 4.16663 5.83333C4.16663 7.67428 5.65901 9.16667 7.49996 9.16667Z" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M13.3334 9.16667L15 10.8333L18.3334 7.5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+      </div>
     </div>
   );
 };
@@ -243,58 +602,6 @@ const TestReport = () => {
 
   const closeBundlePopup = () => {
     setSelectedBundle(null);
-  };
-
-  const filterData = (data) => {
-    let filteredData = structuredClone(data);
-    
-    // Add unique IDs to prompts if they don't have them
-    filteredData.forEach((bundle, bundleIndex) => {
-      bundle.recipes.forEach((recipe, recipeIndex) => {
-        recipe.prompts.forEach((prompt, promptIndex) => {
-          if (!prompt.id) {
-            prompt.id = `${bundleIndex}-${recipeIndex}-${promptIndex}`;
-          }
-        });
-      });
-    });
-    
-    // Apply all active filters to each prompt
-    filteredData = filteredData.map(bundle => {
-      const filteredRecipes = bundle.recipes.map(recipe => {
-        const filteredPrompts = recipe.prompts.filter(prompt => {
-          const matchesBundle = selectedBundles.length === 0 || selectedBundles.includes(bundle.name);
-          const matchesRecipe = selectedRecipes.length === 0 || selectedRecipes.includes(recipe.name);
-          const matchesScore = selectedScores.length === 0 || selectedScores.includes(prompt.score);
-          
-          let matchesSearch = true;
-          if (searchTerm) {
-            const searchLower = searchTerm.toLowerCase();
-            matchesSearch = 
-              prompt.prompt_message?.toLowerCase().includes(searchLower) ||
-              prompt.target?.toLowerCase().includes(searchLower) ||
-              prompt.response?.toLowerCase().includes(searchLower) ||
-              prompt.notes?.toLowerCase().includes(searchLower) ||
-              bundle.name.toLowerCase().includes(searchLower) ||
-              recipe.name.toLowerCase().includes(searchLower);
-          }
-
-          return matchesBundle && matchesRecipe && matchesScore && matchesSearch;
-        });
-
-        return {
-          ...recipe,
-          prompts: filteredPrompts
-        };
-      }).filter(recipe => recipe.prompts.length > 0); // Remove recipes with no matching prompts
-
-      return {
-        ...bundle,
-        recipes: filteredRecipes
-      };
-    }).filter(bundle => bundle.recipes.length > 0); // Remove bundles with no matching recipes
-
-    return filteredData;
   };
 
   return (
@@ -538,244 +845,32 @@ const TestReport = () => {
             </div>
           </div>
 
-          {/* Data Table Section */}
-          <div className="data-table-section">
-            <div className="table-controls">
-              <div className="filter-controls">
-                <span className="filter-label">Filter:</span>
-                <div className="filter-tag" ref={bundleFilterRef} onClick={() => setIsFilterOpen(current => current === 'bundles' ? null : 'bundles')}>
-                  <span className="tag-label">Bundles</span>
-                  <span className="tag-count">
-                    {selectedBundles.length ? `Selected (${selectedBundles.length})` : 'All'}
-                  </span>
-                  {isFilterOpen === 'bundles' && (
-                    <div className="filter-dropdown">
-                      {bundleItems.map(bundle => bundle.name)
-                      .filter((name, index, self) => self.indexOf(name) === index)
-                      .map(bundleName => (
-                        <div 
-                          key={bundleName} 
-                          className={`filter-item ${selectedBundles.includes(bundleName) ? 'selected' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedBundles(prev => 
-                              prev.includes(bundleName) 
-                                ? prev.filter(b => b !== bundleName)
-                                : [...prev, bundleName]
-                            );
-                          }}
-                        >
-                          <span>{bundleName}</span>
-                          {selectedBundles.includes(bundleName) && (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                              <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="filter-tag" ref={recipeFilterRef} onClick={() => setIsFilterOpen(current => current === 'recipes' ? null : 'recipes')}>
-                  <span className="tag-label">Recipes</span>
-                  <span className="tag-count">
-                    {selectedRecipes.length ? `Selected (${selectedRecipes.length})` : 'All'}
-                  </span>
-                  {isFilterOpen === 'recipes' && (
-                    <div className="filter-dropdown">
-                      {bundleItems.flatMap(bundle => 
-                        bundle.recipes.map(recipe => recipe.name)
-                      ).filter((name, index, self) => self.indexOf(name) === index)
-                      .map(recipeName => (
-                        <div 
-                          key={recipeName} 
-                          className={`filter-item ${selectedRecipes.includes(recipeName) ? 'selected' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedRecipes(prev => 
-                              prev.includes(recipeName) 
-                                ? prev.filter(r => r !== recipeName)
-                                : [...prev, recipeName]
-                            );
-                          }}
-                        >
-                          <span>{recipeName}</span>
-                          {selectedRecipes.includes(recipeName) && (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                              <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="filter-tag" ref={scoreFilterRef} onClick={() => setIsFilterOpen(current => current === 'scores' ? null : 'scores')}>
-                  <span className="tag-label">Scores</span>
-                  <span className="tag-count">
-                    {selectedScores.length ? `Selected (${selectedScores.length})` : 'All'}
-                  </span>
-                  {isFilterOpen === 'scores' && (
-                    <div className="filter-dropdown">
-                      {[0, 1].map(score => (
-                        <div 
-                          key={score} 
-                          className={`filter-item ${selectedScores.includes(score) ? 'selected' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedScores(prev => 
-                              prev.includes(score) 
-                                ? prev.filter(s => s !== score)
-                                : [...prev, score]
-                            );
-                          }}
-                        >
-                          <span>{score}</span>
-                          {selectedScores.includes(score) && (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                              <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="view-controls">
-                <div className="view-toggle">
-                  <button className={`toggle-button ${selectedView === 'list' ? 'active' : ''}`} onClick={() => setSelectedView('list')}>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M6.66667 9.33337H2V14H6.66667V9.33337Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M6.66667 2H2V6.66667H6.66667V2Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M9.33337 2.66663H14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M9.33337 6H14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M9.33337 10H14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M9.33337 13.3334H14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span>List</span>
-                  </button>
-                  <button className={`toggle-button ${selectedView === 'table' ? 'active' : ''}`} onClick={() => setSelectedView('table')}>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M6 2H3.33333C2.97971 2 2.64057 2.14048 2.39052 2.39052C2.14048 2.64057 2 2.97971 2 3.33333V6M6 2H12.6667C13.0203 2 13.3594 2.14048 13.6095 2.39052C13.8595 2.64057 14 2.97971 14 3.33333V6M6 2V14M2 6V12.6667C2 13.0203 2.14048 13.3594 2.39052 13.6095C2.64057 13.8595 2.97971 14 3.33333 14H6M2 6H14M14 6V12.6667C14 13.0203 13.8595 13.3594 13.6095 13.6095C13.3594 13.8595 13.0203 14 12.6667 14H6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span>Table</span>
-                  </button>
-                </div>
-                <div className="search-box">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z" stroke="#334155" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M14 14L11.1 11.1" stroke="#334155" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  <input
-                    type="text"
-                    className="search-input"
-                    placeholder="Search..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <div className="columns-button">
-                  <span>Columns</span>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M12.6667 2H3.33333C2.59695 2 2 2.59695 2 3.33333V12.6667C2 13.403 2.59695 14 3.33333 14H12.6667C13.403 14 14 13.403 14 12.6667V3.33333C14 2.59695 13.403 2 12.6667 2Z" stroke="#334155" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M8 2V14" stroke="#334155" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div className="prompts-count">216,906 prompts</div>
-
-            {/* Data Table */}
-            <div className="data-table">
-              <div className="table-header">
-                <div className="header-cell bundle-header">Bundle</div>
-                <div className="header-cell recipe-header">Recipe</div>
-                <div className="header-cell prompt-header">Prompt</div>
-                <div className="header-cell target-header">Target</div>
-                <div className="header-cell response-header">Response</div>
-                <div className="header-cell score-header">
-                  <span>Score</span>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M7.33337 7.33337H10" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M7.33337 10H12" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M7.33337 12.6666H14" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M6 4.66663L4 2.66663L2 4.66663" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M4 4V13.3333" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <div className="header-cell notes-header">Notes</div>
-              </div>
-
-              {loading ? (
-                <div>Loading data...</div>
-              ) : error ? (
-                <div>Error: {error}</div>
-              ) : (
-                filterData(bundleItems).map((bundle) => 
-                  bundle.recipes.map((recipe) =>
-                    recipe.prompts.map((prompt, promptIndex) => (
-                      <div key={`${bundle.name}-${recipe.name}-${promptIndex}`} 
-                           className={`table-row ${promptIndex === 0 ? 'highlighted-row' : ''}`}>
-                        <div className="table-cell">{bundle.name}</div>
-                        <div className="table-cell">{recipe.name}</div>
-                        <div className="table-cell prompt-text">{prompt.prompt_message}</div>
-                        <div className="table-cell">{prompt.target}</div>
-                        <div className="table-cell">{prompt.response}</div>
-                        <EditableCell 
-                          prompt={prompt}
-                          type="score"
-                          onEdit={(element) => {
-                            setEditingPrompt(editingPrompt?.id === prompt.id ? null : {
-                              id: prompt.id,
-                              score: prompt.score,
-                              notes: prompt.notes,
-                              element,
-                              isScoreOpen: false
-                            });
-                          }}
-                        />
-                        <EditableCell 
-                          prompt={prompt}
-                          type="notes"
-                          onEdit={(element) => {
-                            setEditingPrompt(editingPrompt?.id === prompt.id ? null : {
-                              id: prompt.id,
-                              score: prompt.score,
-                              notes: prompt.notes,
-                              element,
-                              isScoreOpen: false
-                            });
-                          }}
-                        />
-                        {promptIndex === 0 && (
-                          <svg className="user-check-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                            <path d="M13.3333 17.5V15.8333C13.3333 14.9493 12.9821 14.1014 12.357 13.4763C11.7319 12.8512 10.884 12.5 9.99996 12.5H4.99996C4.1159 12.5 3.26806 12.8512 2.64294 13.4763C2.01782 14.1014 1.66663 14.9493 1.66663 15.8333V17.5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M7.49996 9.16667C9.34091 9.16667 10.8333 7.67428 10.8333 5.83333C10.8333 3.99238 9.34091 2.5 7.49996 2.5C5.65901 2.5 4.16663 3.99238 4.16663 5.83333C4.16663 7.67428 5.65901 9.16667 7.49996 9.16667Z" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M13.3334 9.16667L15 10.8333L18.3334 7.5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        )}
-                        {editingPrompt?.id === prompt.id && (
-                          <EditDropdown 
-                            editingPrompt={editingPrompt}
-                            editDropdownRef={editDropdownRef}
-                            onClose={(shouldRefresh) => {
-                              setEditingPrompt(null);
-                              if (shouldRefresh) {
-                                fetchBundleData();
-                              }
-                            }}
-                            onSave={setEditingPrompt}
-                          />
-                        )}
-                      </div>
-                    ))
-                  )
-                )
-              )}
-            </div>
-          </div>
+                      {/* Data Table Section */}
+            <DataTable 
+              data={bundleItems}
+              loading={loading}
+              error={error}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              selectedView={selectedView}
+              setSelectedView={setSelectedView}
+              selectedBundles={selectedBundles}
+              setSelectedBundles={setSelectedBundles}
+              selectedRecipes={selectedRecipes}
+              setSelectedRecipes={setSelectedRecipes}
+              selectedScores={selectedScores}
+              setSelectedScores={setSelectedScores}
+              isFilterOpen={isFilterOpen}
+              setIsFilterOpen={setIsFilterOpen}
+              editingPrompt={editingPrompt}
+              setEditingPrompt={setEditingPrompt}
+              editDropdownRef={editDropdownRef}
+              bundleFilterRef={bundleFilterRef}
+              recipeFilterRef={recipeFilterRef}
+              scoreFilterRef={scoreFilterRef}
+              fetchBundleData={fetchBundleData}
+              showBundleFilter={true}
+            />
         </section>
       </main>
 
@@ -852,145 +947,35 @@ const TestReport = () => {
             </div>
 
             {/* Filter Controls */}
-            <div className="popup-filter-controls">
-              <div className="filter-controls">
-                <span className="filter-label">Filter:</span>
-                <div className="filter-tag">
-                  <span className="tag-label">Recipes</span>
-                  <span className="tag-count">All (5)</span>
-                </div>
-                <div className="filter-tag">
-                  <span className="tag-label">Scores</span>
-                  <span className="tag-count">All (2)</span>
-                </div>
-              </div>
-              <div className="view-controls">
-                <div className="view-toggle">
-                  <button className="toggle-button active">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M6.66667 9.33337H2V14H6.66667V9.33337Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M6.66667 2H2V6.66667H6.66667V2Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M9.33337 2.66663H14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M9.33337 6H14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M9.33337 10H14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M9.33337 13.3334H14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span>List</span>
-                  </button>
-                  <button className="toggle-button">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M6 2H3.33333C2.97971 2 2.64057 2.14048 2.39052 2.39052C2.14048 2.64057 2 2.97971 2 3.33333V6M6 2H12.6667C13.0203 2 13.3594 2.14048 13.6095 2.39052C13.8595 2.64057 14 2.97971 14 3.33333V6M6 2V14M2 6V12.6667C2 13.0203 2.14048 13.3594 2.39052 13.6095C2.64057 13.8595 2.97971 14 3.33333 14H6M2 6H14M14 6V12.6667C14 13.0203 13.8595 13.3594 13.6095 13.6095C13.3594 13.8595 13.0203 14 12.6667 14H6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span>Table</span>
-                  </button>
-                </div>
-                <div className="search-box">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z" stroke="#334155" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M14 14L11.1 11.1" stroke="#334155" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  <span className="search-placeholder">Search...</span>
-                </div>
-                <div className="columns-button">
-                  <span>Columns</span>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M12.6667 2H3.33333C2.59695 2 2 2.59695 2 3.33333V12.6667C2 13.403 2.59695 14 3.33333 14H12.6667C13.403 14 14 13.403 14 12.6667V3.33333C14 2.59695 13.403 2 12.6667 2Z" stroke="#334155" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M8 2V14" stroke="#334155" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-            </div>
 
-            <div className="popup-prompts-count">120,000 prompts</div>
 
             {/* Popup Table */}
-            <div className="popup-table">
-              <div className="popup-table-header">
-                <div className="popup-header-cell">Recipe</div>
-                <div className="popup-header-cell">Prompt</div>
-                <div className="popup-header-cell">Target</div>
-                <div className="popup-header-cell">Response</div>
-                <div className="popup-header-cell">
-                  <span>Score</span>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M7.33337 7.33337H10" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M7.33337 10H12" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M7.33337 12.6666H14" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M6 4.66663L4 2.66663L2 4.66663" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M4 4V13.3333" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <div className="popup-header-cell">Notes</div>
-              </div>
-
-              {loading ? (
-                <div>Loading data...</div>
-              ) : error ? (
-                <div>Error: {error}</div>
-              ) : (
-                filterData(bundleItems)
-                  .find(bundle => bundle.name === selectedBundle)
-                  ?.recipes.flatMap((recipe) =>
-                    recipe.prompts.map((prompt, promptIndex) => (
-                      <div 
-                        key={`${recipe.name}-${promptIndex}`}
-                        className={`popup-table-row ${promptIndex === 0 ? 'highlighted-row' : ''}`}
-                      >
-                        <div className="popup-table-cell">{recipe.name}</div>
-                        <div className="popup-table-cell prompt-text">{prompt.prompt_message}</div>
-                        <div className="popup-table-cell">{prompt.target}</div>
-                        <div className="popup-table-cell">{prompt.response}</div>
-                        <EditableCell 
-                          prompt={prompt}
-                          type="score"
-                          onEdit={(element) => {
-                            setEditingPrompt(editingPrompt?.id === prompt.id ? null : {
-                              id: prompt.id,
-                              score: prompt.score,
-                              notes: prompt.notes,
-                              element,
-                              isScoreOpen: false
-                            });
-                          }}
-                        />
-                        <EditableCell 
-                          prompt={prompt}
-                          type="notes"
-                          onEdit={(element) => {
-                            setEditingPrompt(editingPrompt?.id === prompt.id ? null : {
-                              id: prompt.id,
-                              score: prompt.score,
-                              notes: prompt.notes,
-                              element,
-                              isScoreOpen: false
-                            });
-                          }}
-                        />
-                        {promptIndex === 0 && (
-                          <svg className="user-check-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                            <path d="M13.3333 17.5V15.8333C13.3333 14.9493 12.9821 14.1014 12.357 13.4763C11.7319 12.8512 10.884 12.5 9.99996 12.5H4.99996C4.1159 12.5 3.26806 12.8512 2.64294 13.4763C2.01782 14.1014 1.66663 14.9493 1.66663 15.8333V17.5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M7.49996 9.16667C9.34091 9.16667 10.8333 7.67428 10.8333 5.83333C10.8333 3.99238 9.34091 2.5 7.49996 2.5C5.65901 2.5 4.16663 3.99238 4.16663 5.83333C4.16663 7.67428 5.65901 9.16667 7.49996 9.16667Z" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M13.3334 9.16667L15 10.8333L18.3334 7.5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        )}
-                        {editingPrompt?.id === prompt.id && (
-                          <EditDropdown 
-                            editingPrompt={editingPrompt}
-                            editDropdownRef={editDropdownRef}
-                            onClose={(shouldRefresh) => {
-                              setEditingPrompt(null);
-                              if (shouldRefresh) {
-                                fetchBundleData();
-                              }
-                            }}
-                            onSave={setEditingPrompt}
-                          />
-                        )}
-                      </div>
-                    ))
-                  )
-              )}
-            </div>
+            <DataTable 
+              data={[bundleItems.find(bundle => bundle.name === selectedBundle)].filter(Boolean)}
+              loading={loading}
+              error={error}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              selectedView={selectedView}
+              setSelectedView={setSelectedView}
+              selectedBundles={selectedBundles}
+              setSelectedBundles={setSelectedBundles}
+              selectedRecipes={selectedRecipes}
+              setSelectedRecipes={setSelectedRecipes}
+              selectedScores={selectedScores}
+              setSelectedScores={setSelectedScores}
+              isFilterOpen={isFilterOpen}
+              setIsFilterOpen={setIsFilterOpen}
+              editingPrompt={editingPrompt}
+              setEditingPrompt={setEditingPrompt}
+              editDropdownRef={editDropdownRef}
+              bundleFilterRef={bundleFilterRef}
+              recipeFilterRef={recipeFilterRef}
+              scoreFilterRef={scoreFilterRef}
+              fetchBundleData={fetchBundleData}
+              showBundleFilter={false}
+              isPopup={true}
+            />
           </div>
         </div>
       )}
