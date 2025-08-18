@@ -16,7 +16,10 @@ const TestReport = () => {
   const [selectedBundles, setSelectedBundles] = useState([]);
   const [selectedRecipes, setSelectedRecipes] = useState([]);
   const [selectedScores, setSelectedScores] = useState([]);
+  const [editingPrompt, setEditingPrompt] = useState(null);
+  const [editNote, setEditNote] = useState('');
   const chartContentRef = useRef(null);
+  const editDropdownRef = useRef(null);
   const bundleFilterRef = useRef(null);
   const recipeFilterRef = useRef(null);
   const scoreFilterRef = useRef(null);
@@ -26,10 +29,12 @@ const TestReport = () => {
       const clickedOutsideAll = 
         (!bundleFilterRef.current || !bundleFilterRef.current.contains(event.target)) &&
         (!recipeFilterRef.current || !recipeFilterRef.current.contains(event.target)) &&
-        (!scoreFilterRef.current || !scoreFilterRef.current.contains(event.target));
+        (!scoreFilterRef.current || !scoreFilterRef.current.contains(event.target)) &&
+        (!editDropdownRef.current || !editDropdownRef.current.contains(event.target));
 
       if (clickedOutsideAll) {
         setIsFilterOpen(null);
+        setEditingPrompt(null);
       }
     };
 
@@ -102,6 +107,17 @@ const TestReport = () => {
 
   const filterData = (data) => {
     let filteredData = structuredClone(data);
+    
+    // Add unique IDs to prompts if they don't have them
+    filteredData.forEach((bundle, bundleIndex) => {
+      bundle.recipes.forEach((recipe, recipeIndex) => {
+        recipe.prompts.forEach((prompt, promptIndex) => {
+          if (!prompt.id) {
+            prompt.id = `${bundleIndex}-${recipeIndex}-${promptIndex}`;
+          }
+        });
+      });
+    });
     
     // Apply all active filters to each prompt
     filteredData = filteredData.map(bundle => {
@@ -567,7 +583,20 @@ const TestReport = () => {
                         <div className="table-cell prompt-text">{prompt.prompt_message}</div>
                         <div className="table-cell">{prompt.target}</div>
                         <div className="table-cell">{prompt.response}</div>
-                        <div className="table-cell score-cell">
+                        <div 
+                          className="table-cell score-cell"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingPrompt(editingPrompt?.id === prompt.id ? null : {
+                              id: prompt.id,
+                              score: prompt.score,
+                              notes: prompt.notes,
+                              element: e.currentTarget,
+                              isScoreOpen: false
+                            });
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        >
                           <div className={`score-badge ${prompt.score === 1 ? 'success' : 'error'}`}>
                             <span>{prompt.score}</span>
                           </div>
@@ -579,7 +608,117 @@ const TestReport = () => {
                             </svg>
                           )}
                         </div>
-                        <div className="table-cell notes-text">{prompt.notes}</div>
+                        <div 
+                          className="table-cell notes-text"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingPrompt(editingPrompt?.id === prompt.id ? null : {
+                              id: prompt.id,
+                              score: prompt.score,
+                              notes: prompt.notes,
+                              element: e.currentTarget,
+                              isScoreOpen: false
+                            });
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {prompt.notes}
+                        </div>
+                        {editingPrompt?.id === prompt.id && (
+                          <div 
+                            ref={editDropdownRef}
+                            className="edit-dropdown"
+                            style={{
+                              position: 'fixed',
+                              top: editingPrompt.element.getBoundingClientRect().bottom + 4,
+                              left: editingPrompt.element.getBoundingClientRect().left,
+                            }}
+                          >
+                            <div className="edit-dropdown-header">
+                              <span>Score</span>
+                              <svg 
+                                className="close-icon" 
+                                width="16" 
+                                height="16" 
+                                viewBox="0 0 16 16" 
+                                fill="none"
+                                onClick={() => setEditingPrompt(null)}
+                              >
+                                <path d="M12 4L4 12M4 4L12 12" stroke="#64748B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            </div>
+                            <div className="score-selector">
+                              <div 
+                                className="score-display"
+                                onClick={() => setEditingPrompt(prev => ({ ...prev, isScoreOpen: !prev.isScoreOpen }))}
+                              >
+                                <div className={`score-badge ${editingPrompt.score === 1 ? 'success' : 'error'}`}>
+                                  <span>{editingPrompt.score}</span>
+                                </div>
+                                <svg 
+                                  width="12" 
+                                  height="12" 
+                                  viewBox="0 0 12 12" 
+                                  fill="none"
+                                  style={{ transform: editingPrompt.isScoreOpen ? 'rotate(90deg)' : 'none' }}
+                                >
+                                  <path d="M6 3L9 6L6 9" stroke="black" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </div>
+                              {editingPrompt.isScoreOpen && (
+                                <div className="score-options">
+                                  <div 
+                                    className={`score-option ${editingPrompt.score === 1 ? 'selected' : ''}`}
+                                    onClick={() => {
+                                      setEditingPrompt(prev => ({ ...prev, score: 1, isScoreOpen: false }));
+                                    }}
+                                  >
+                                    <span>1</span>
+                                    {editingPrompt.score === 1 && (
+                                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                                      </svg>
+                                    )}
+                                  </div>
+                                  <div 
+                                    className={`score-option ${editingPrompt.score === 0 ? 'selected' : ''}`}
+                                    onClick={() => {
+                                      setEditingPrompt(prev => ({ ...prev, score: 0, isScoreOpen: false }));
+                                    }}
+                                  >
+                                    <span>0</span>
+                                    {editingPrompt.score === 0 && (
+                                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                                      </svg>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <div className="notes-section">
+                              <span className="notes-label">Add note (optional)</span>
+                              <div className="notes-editor">
+                                <textarea
+                                  value={editingPrompt.notes || ''}
+                                  onChange={(e) => setEditingPrompt(prev => ({ ...prev, notes: e.target.value }))}
+                                  placeholder="Add a note..."
+                                  rows={3}
+                                />
+                              </div>
+                            </div>
+                            <button 
+                              className="save-button"
+                              onClick={() => {
+                                // Here you would typically make an API call to save the changes
+                                console.log('Save changes:', editingPrompt);
+                                setEditingPrompt(null);
+                              }}
+                            >
+                              Save
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))
                   )
