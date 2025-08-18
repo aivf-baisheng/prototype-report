@@ -466,9 +466,9 @@ body {
 .chart-labels {
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  gap: 17px;
-  padding: 8px 0 15px 3px;
+  justify-content: flex-start;
+  gap: 14px;
+  padding: 8px 0;
   align-items: flex-end;
   align-self: stretch;
   min-width: 82px;
@@ -476,7 +476,7 @@ body {
 }
 
 .label-row {
-  height: 30px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -495,7 +495,7 @@ body {
 }
 
 .label-row:first-child {
-  height: 15px;
+  margin-bottom: 16px;
 }
 
 .chart-divider {
@@ -507,15 +507,17 @@ body {
 .chart-bars {
   flex: 1;
   min-width: 0;
-  height: 70px;
+  height: auto;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  padding: 8px 0;
 }
 
 .bar-container {
   position: relative;
   height: 16px;
   margin-bottom: 14px;
+  width: 100%;
 }
 
 .bar-container:first-child {
@@ -531,7 +533,10 @@ body {
   border-radius: 120px 0 0 120px;
   background: var(--blue-400);
   flex-shrink: 0;
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: 100%;
 }
 
 .vertical-dotted-line {
@@ -543,37 +548,34 @@ body {
 }
 
 .confidence-interval-bar {
+  position: absolute;
   top: 50%;
-  bottom: auto; /* This resets the bottom property */
   transform: translateY(-50%);
   height: 32px;
-  flex-shrink: 0;
   border-radius: 4px;
   border: 1px dashed var(--slate-700);
   background: rgba(255, 255, 255, 0.41);
-  flex-shrink: 0;
-  position: absolute;
-
+  z-index: 1;
 }
 
 .chart-values {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 24px;
+  justify-content: flex-start;
+  gap: 14px;
   align-items: flex-end;
   align-self: stretch;
   padding: 8px 0;
 }
 
 .value-row {
-  height: 30px;
+  height: 16px;
   display: flex;
   align-items: center;
 }
 
 .value-row:first-child {
-  height: 15px;
+  margin-bottom: 16px;
 }
 
 .chart-value {

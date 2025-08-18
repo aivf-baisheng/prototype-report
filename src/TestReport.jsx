@@ -813,20 +813,20 @@ const TestReport = () => {
                             <div key={index} className="bar-container">
                               <div 
                                 className="progress-bar" 
-                                style={{width: `${recipe.percentage * 4}px`}}
+                                style={{width: `${recipe.percentage}%`}}
                               ></div>
                               <div 
                                 className="vertical-dotted-line"
                                 style={{
-                                  left: `${recipe.percentage * 4}px`,
+                                  left: `${recipe.percentage}%`,
                                   height: `${lineHeight}px`
                                 }}
                               ></div>
                               <div 
                                 className="confidence-interval-bar"
                                 style={{
-                                  left: `${recipe.ci_minimum_band * 4}px`,
-                                  width: `${(recipe.ci_maximum_band - recipe.ci_minimum_band) * 4}px`
+                                  left: `${recipe.ci_minimum_band}%`,
+                                  width: `${recipe.ci_maximum_band - recipe.ci_minimum_band}%`
                                 }}
                               ></div>
                             </div>
