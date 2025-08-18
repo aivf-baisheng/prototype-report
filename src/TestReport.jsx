@@ -1,4 +1,139 @@
 import React, { useState, useEffect, useRef } from 'react';
+
+const EditableCell = ({ prompt, type, onEdit }) => {
+  const isScore = type === 'score';
+  
+  return (
+    <div 
+      className={`${isScore ? 'table-cell score-cell' : 'table-cell notes-text'}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onEdit(e.currentTarget);
+      }}
+      style={{ cursor: 'pointer' }}
+    >
+      {isScore ? (
+        <div className={`score-badge ${prompt.score === 1 ? 'success' : 'error'}`}>
+          <span>{prompt.score}</span>
+        </div>
+      ) : prompt.notes}
+    </div>
+  );
+};
+
+const EditDropdown = ({ editingPrompt, editDropdownRef, onClose, onSave }) => {
+  return (
+    <div 
+      ref={editDropdownRef}
+      className="edit-dropdown"
+      style={{
+        position: 'fixed',
+        top: editingPrompt.element.getBoundingClientRect().bottom + 4,
+        left: editingPrompt.element.getBoundingClientRect().left,
+      }}
+    >
+      <div className="edit-dropdown-header">
+        <span>Score</span>
+        <svg 
+          className="close-icon" 
+          width="16" 
+          height="16" 
+          viewBox="0 0 16 16" 
+          fill="none"
+          onClick={onClose}
+        >
+          <path d="M12 4L4 12M4 4L12 12" stroke="#64748B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+      <div className="score-selector">
+        <div 
+          className="score-display"
+          onClick={() => onSave({ ...editingPrompt, isScoreOpen: !editingPrompt.isScoreOpen })}
+        >
+          <div className={`score-badge ${editingPrompt.score === 1 ? 'success' : 'error'}`}>
+            <span>{editingPrompt.score}</span>
+          </div>
+          <svg 
+            width="12" 
+            height="12" 
+            viewBox="0 0 12 12" 
+            fill="none"
+            style={{ transform: editingPrompt.isScoreOpen ? 'rotate(90deg)' : 'none' }}
+          >
+            <path d="M6 3L9 6L6 9" stroke="black" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        {editingPrompt.isScoreOpen && (
+          <div className="score-options">
+            <div 
+              className={`score-option ${editingPrompt.score === 1 ? 'selected' : ''}`}
+              onClick={() => onSave({ ...editingPrompt, score: 1, isScoreOpen: false })}
+            >
+              <span>1</span>
+              {editingPrompt.score === 1 && (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </div>
+            <div 
+              className={`score-option ${editingPrompt.score === 0 ? 'selected' : ''}`}
+              onClick={() => onSave({ ...editingPrompt, score: 0, isScoreOpen: false })}
+            >
+              <span>0</span>
+              {editingPrompt.score === 0 && (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="notes-section">
+        <span className="notes-label">Add note (optional)</span>
+        <div className="notes-editor">
+          <textarea
+            value={editingPrompt.notes || ''}
+            onChange={(e) => onSave({ ...editingPrompt, notes: e.target.value })}
+            placeholder="Add a note..."
+            rows={3}
+          />
+        </div>
+      </div>
+      <button 
+        className="save-button"
+        onClick={async () => {
+          try {
+            const response = await fetch(`http://localhost:8000/api/bundles/update_prompt`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                prompt_id: editingPrompt.id,
+                score: editingPrompt.score,
+                notes: editingPrompt.notes
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error('Failed to update prompt');
+            }
+
+            // Let parent handle the refresh
+            onClose(true);
+          } catch (error) {
+            console.error('Error updating prompt:', error);
+            alert('Failed to save changes. Please try again.');
+          }
+        }}
+      >
+        Save
+      </button>
+    </div>
+  );
+};
 import './TestReport.css';
 
 // API endpoint configuration
@@ -588,167 +723,51 @@ const TestReport = () => {
                         <div className="table-cell prompt-text">{prompt.prompt_message}</div>
                         <div className="table-cell">{prompt.target}</div>
                         <div className="table-cell">{prompt.response}</div>
-                        <div 
-                          className="table-cell score-cell"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                        <EditableCell 
+                          prompt={prompt}
+                          type="score"
+                          onEdit={(element) => {
                             setEditingPrompt(editingPrompt?.id === prompt.id ? null : {
                               id: prompt.id,
                               score: prompt.score,
                               notes: prompt.notes,
-                              element: e.currentTarget,
+                              element,
                               isScoreOpen: false
                             });
                           }}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          <div className={`score-badge ${prompt.score === 1 ? 'success' : 'error'}`}>
-                            <span>{prompt.score}</span>
-                          </div>
-                          {promptIndex === 0 && (
-                            <svg className="user-check-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                              <path d="M13.3333 17.5V15.8333C13.3333 14.9493 12.9821 14.1014 12.357 13.4763C11.7319 12.8512 10.884 12.5 9.99996 12.5H4.99996C4.1159 12.5 3.26806 12.8512 2.64294 13.4763C2.01782 14.1014 1.66663 14.9493 1.66663 15.8333V17.5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M7.49996 9.16667C9.34091 9.16667 10.8333 7.67428 10.8333 5.83333C10.8333 3.99238 9.34091 2.5 7.49996 2.5C5.65901 2.5 4.16663 3.99238 4.16663 5.83333C4.16663 7.67428 5.65901 9.16667 7.49996 9.16667Z" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M13.3334 9.16667L15 10.8333L18.3334 7.5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                        <div 
-                          className="table-cell notes-text"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                        />
+                        <EditableCell 
+                          prompt={prompt}
+                          type="notes"
+                          onEdit={(element) => {
                             setEditingPrompt(editingPrompt?.id === prompt.id ? null : {
                               id: prompt.id,
                               score: prompt.score,
                               notes: prompt.notes,
-                              element: e.currentTarget,
+                              element,
                               isScoreOpen: false
                             });
                           }}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          {prompt.notes}
-                        </div>
+                        />
+                        {promptIndex === 0 && (
+                          <svg className="user-check-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M13.3333 17.5V15.8333C13.3333 14.9493 12.9821 14.1014 12.357 13.4763C11.7319 12.8512 10.884 12.5 9.99996 12.5H4.99996C4.1159 12.5 3.26806 12.8512 2.64294 13.4763C2.01782 14.1014 1.66663 14.9493 1.66663 15.8333V17.5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M7.49996 9.16667C9.34091 9.16667 10.8333 7.67428 10.8333 5.83333C10.8333 3.99238 9.34091 2.5 7.49996 2.5C5.65901 2.5 4.16663 3.99238 4.16663 5.83333C4.16663 7.67428 5.65901 9.16667 7.49996 9.16667Z" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M13.3334 9.16667L15 10.8333L18.3334 7.5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
                         {editingPrompt?.id === prompt.id && (
-                          <div 
-                            ref={editDropdownRef}
-                            className="edit-dropdown"
-                            style={{
-                              position: 'fixed',
-                              top: editingPrompt.element.getBoundingClientRect().bottom + 4,
-                              left: editingPrompt.element.getBoundingClientRect().left,
+                          <EditDropdown 
+                            editingPrompt={editingPrompt}
+                            editDropdownRef={editDropdownRef}
+                            onClose={(shouldRefresh) => {
+                              setEditingPrompt(null);
+                              if (shouldRefresh) {
+                                fetchBundleData();
+                              }
                             }}
-                          >
-                            <div className="edit-dropdown-header">
-                              <span>Score</span>
-                              <svg 
-                                className="close-icon" 
-                                width="16" 
-                                height="16" 
-                                viewBox="0 0 16 16" 
-                                fill="none"
-                                onClick={() => setEditingPrompt(null)}
-                              >
-                                <path d="M12 4L4 12M4 4L12 12" stroke="#64748B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            </div>
-                            <div className="score-selector">
-                              <div 
-                                className="score-display"
-                                onClick={() => setEditingPrompt(prev => ({ ...prev, isScoreOpen: !prev.isScoreOpen }))}
-                              >
-                                <div className={`score-badge ${editingPrompt.score === 1 ? 'success' : 'error'}`}>
-                                  <span>{editingPrompt.score}</span>
-                                </div>
-                                <svg 
-                                  width="12" 
-                                  height="12" 
-                                  viewBox="0 0 12 12" 
-                                  fill="none"
-                                  style={{ transform: editingPrompt.isScoreOpen ? 'rotate(90deg)' : 'none' }}
-                                >
-                                  <path d="M6 3L9 6L6 9" stroke="black" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                              </div>
-                              {editingPrompt.isScoreOpen && (
-                                <div className="score-options">
-                                  <div 
-                                    className={`score-option ${editingPrompt.score === 1 ? 'selected' : ''}`}
-                                    onClick={() => {
-                                      setEditingPrompt(prev => ({ ...prev, score: 1, isScoreOpen: false }));
-                                    }}
-                                  >
-                                    <span>1</span>
-                                    {editingPrompt.score === 1 && (
-                                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                        <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                                      </svg>
-                                    )}
-                                  </div>
-                                  <div 
-                                    className={`score-option ${editingPrompt.score === 0 ? 'selected' : ''}`}
-                                    onClick={() => {
-                                      setEditingPrompt(prev => ({ ...prev, score: 0, isScoreOpen: false }));
-                                    }}
-                                  >
-                                    <span>0</span>
-                                    {editingPrompt.score === 0 && (
-                                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                        <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
-                                      </svg>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                            <div className="notes-section">
-                              <span className="notes-label">Add note (optional)</span>
-                              <div className="notes-editor">
-                                <textarea
-                                  value={editingPrompt.notes || ''}
-                                  onChange={(e) => setEditingPrompt(prev => ({ ...prev, notes: e.target.value }))}
-                                  placeholder="Add a note..."
-                                  rows={3}
-                                />
-                              </div>
-                            </div>
-                            <button 
-                              className="save-button"
-                              onClick={async () => {
-                                console.log('Save clicked');
-                                console.log('Current editing prompt:', editingPrompt);
-                                
-                                try {
-                                  // First update the server
-                                  const response = await fetch(`http://localhost:8000/api/bundles/update_prompt`, {
-                                    method: 'POST',
-                                    headers: {
-                                      'Content-Type': 'application/json',
-                                    },
-                                    body: JSON.stringify({
-                                      prompt_id: editingPrompt.id,
-                                      score: editingPrompt.score,
-                                      notes: editingPrompt.notes
-                                    }),
-                                  });
-
-                                  if (!response.ok) {
-                                    throw new Error('Failed to update prompt');
-                                  }
-
-                                  // If server update successful, fetch fresh data
-                                  await fetchBundleData();
-                                  setEditingPrompt(null);
-                                } catch (error) {
-                                  console.error('Error updating prompt:', error);
-                                  // Optionally show error to user
-                                  alert('Failed to save changes. Please try again.');
-                                }
-                              }}
-                            >
-                              Save
-                            </button>
-                          </div>
+                            onSave={setEditingPrompt}
+                          />
                         )}
                       </div>
                     ))
@@ -921,19 +940,52 @@ const TestReport = () => {
                         <div className="popup-table-cell prompt-text">{prompt.prompt_message}</div>
                         <div className="popup-table-cell">{prompt.target}</div>
                         <div className="popup-table-cell">{prompt.response}</div>
-                        <div className="popup-table-cell score-cell">
-                          <div className={`score-badge ${prompt.score === 1 ? 'success' : 'error'}`}>
-                            <span>{prompt.score}</span>
-                          </div>
-                          {promptIndex === 0 && (
-                            <svg className="user-check-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                              <path d="M13.3333 17.5V15.8333C13.3333 14.9493 12.9821 14.1014 12.357 13.4763C11.7319 12.8512 10.884 12.5 9.99996 12.5H4.99996C4.1159 12.5 3.26806 12.8512 2.64294 13.4763C2.01782 14.1014 1.66663 14.9493 1.66663 15.8333V17.5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M7.49996 9.16667C9.34091 9.16667 10.8333 7.67428 10.8333 5.83333C10.8333 3.99238 9.34091 2.5 7.49996 2.5C5.65901 2.5 4.16663 3.99238 4.16663 5.83333C4.16663 7.67428 5.65901 9.16667 7.49996 9.16667Z" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M13.3334 9.16667L15 10.8333L18.3334 7.5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                        <div className="popup-table-cell notes-text">{prompt.notes}</div>
+                        <EditableCell 
+                          prompt={prompt}
+                          type="score"
+                          onEdit={(element) => {
+                            setEditingPrompt(editingPrompt?.id === prompt.id ? null : {
+                              id: prompt.id,
+                              score: prompt.score,
+                              notes: prompt.notes,
+                              element,
+                              isScoreOpen: false
+                            });
+                          }}
+                        />
+                        <EditableCell 
+                          prompt={prompt}
+                          type="notes"
+                          onEdit={(element) => {
+                            setEditingPrompt(editingPrompt?.id === prompt.id ? null : {
+                              id: prompt.id,
+                              score: prompt.score,
+                              notes: prompt.notes,
+                              element,
+                              isScoreOpen: false
+                            });
+                          }}
+                        />
+                        {promptIndex === 0 && (
+                          <svg className="user-check-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M13.3333 17.5V15.8333C13.3333 14.9493 12.9821 14.1014 12.357 13.4763C11.7319 12.8512 10.884 12.5 9.99996 12.5H4.99996C4.1159 12.5 3.26806 12.8512 2.64294 13.4763C2.01782 14.1014 1.66663 14.9493 1.66663 15.8333V17.5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M7.49996 9.16667C9.34091 9.16667 10.8333 7.67428 10.8333 5.83333C10.8333 3.99238 9.34091 2.5 7.49996 2.5C5.65901 2.5 4.16663 3.99238 4.16663 5.83333C4.16663 7.67428 5.65901 9.16667 7.49996 9.16667Z" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M13.3334 9.16667L15 10.8333L18.3334 7.5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                        {editingPrompt?.id === prompt.id && (
+                          <EditDropdown 
+                            editingPrompt={editingPrompt}
+                            editDropdownRef={editDropdownRef}
+                            onClose={(shouldRefresh) => {
+                              setEditingPrompt(null);
+                              if (shouldRefresh) {
+                                fetchBundleData();
+                              }
+                            }}
+                            onSave={setEditingPrompt}
+                          />
+                        )}
                       </div>
                     ))
                   )
