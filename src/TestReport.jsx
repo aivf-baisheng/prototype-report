@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './TestReport.css';
 
 // API endpoint configuration
@@ -10,6 +10,9 @@ const TestReport = () => {
   const [bundleItems, setBundleItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [lineHeight, setLineHeight] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
+  const chartContentRef = useRef(null);
 
   // Function to fetch bundle data
   const fetchBundleData = async () => {
@@ -45,12 +48,51 @@ const TestReport = () => {
     console.log('Bundle items updated:', bundleItems);
   }, [bundleItems]);
 
+  // Update line height when content changes or window resizes
+  useEffect(() => {
+    const updateHeight = () => {
+      if (chartContentRef.current) {
+        const height = chartContentRef.current.offsetHeight;
+        console.log('Chart content height:', height);
+        setLineHeight(height);
+      }
+    };
+
+    // Wait for content to be rendered
+    setTimeout(updateHeight, 0);
+    window.addEventListener('resize', updateHeight);
+
+    return () => {
+      window.removeEventListener('resize', updateHeight);
+    };
+  }, [bundleItems]);
+
   const handleBundleClick = (bundleName) => {
     setSelectedBundle(bundleName);
   };
 
   const closeBundlePopup = () => {
     setSelectedBundle(null);
+  };
+
+  const filterData = (data) => {
+    if (!searchTerm) return data;
+    const searchLower = searchTerm.toLowerCase();
+    
+    return data.map(bundle => ({
+      ...bundle,
+      recipes: bundle.recipes.map(recipe => ({
+        ...recipe,
+        prompts: recipe.prompts.filter(prompt => 
+          prompt.prompt_message?.toLowerCase().includes(searchLower) ||
+          prompt.target?.toLowerCase().includes(searchLower) ||
+          prompt.response?.toLowerCase().includes(searchLower) ||
+          prompt.notes?.toLowerCase().includes(searchLower) ||
+          bundle.name.toLowerCase().includes(searchLower) ||
+          recipe.name.toLowerCase().includes(searchLower)
+        )
+      })).filter(recipe => recipe.prompts.length > 0)
+    })).filter(bundle => bundle.recipes.length > 0);
   };
 
   return (
@@ -233,7 +275,7 @@ const TestReport = () => {
                         <path d="M8 3.83337L12.6667 8.50004L8 13.1667" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </div>
-                    <div className="chart-content">
+                    <div className="chart-content" ref={chartContentRef}>
                       <div className="chart-visualization">
                         <div className="chart-labels">
                           {bundle.recipes.map((recipe, index) => (
@@ -249,6 +291,13 @@ const TestReport = () => {
                               <div 
                                 className="progress-bar" 
                                 style={{width: `${recipe.percentage * 4}px`}}
+                              ></div>
+                              <div 
+                                className="vertical-dotted-line"
+                                style={{
+                                  left: `${recipe.percentage * 4}px`,
+                                  height: `${lineHeight}px`
+                                }}
                               ></div>
                               <div 
                                 className="confidence-interval-bar"
@@ -330,7 +379,13 @@ const TestReport = () => {
                     <path d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z" stroke="#334155" strokeLinecap="round" strokeLinejoin="round"/>
                     <path d="M14 14L11.1 11.1" stroke="#334155" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  <span className="search-placeholder">Search...</span>
+                  <input
+                    type="text"
+                    className="search-input"
+                    placeholder="Search..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
                 <div className="columns-button">
                   <span>Columns</span>
@@ -370,7 +425,7 @@ const TestReport = () => {
               ) : error ? (
                 <div>Error: {error}</div>
               ) : (
-                bundleItems.map((bundle) => 
+                filterData(bundleItems).map((bundle) => 
                   bundle.recipes.map((recipe) =>
                     recipe.prompts.map((prompt, promptIndex) => (
                       <div key={`${bundle.name}-${recipe.name}-${promptIndex}`} 
@@ -552,7 +607,7 @@ const TestReport = () => {
               ) : error ? (
                 <div>Error: {error}</div>
               ) : (
-                bundleItems
+                filterData(bundleItems)
                   .find(bundle => bundle.name === selectedBundle)
                   ?.recipes.flatMap((recipe) =>
                     recipe.prompts.map((prompt, promptIndex) => (

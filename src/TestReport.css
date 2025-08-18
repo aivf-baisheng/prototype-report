@@ -512,6 +512,15 @@ body {
   border-radius: 120px 0 0 120px;
   background: var(--blue-400);
   flex-shrink: 0;
+  position: relative;
+}
+
+.vertical-dotted-line {
+  position: absolute;
+  width: 0;
+  border-left: 1px dashed var(--slate-700);
+  top: 0;
+  z-index: 1;
 }
 
 .confidence-interval-bar {
@@ -607,8 +616,8 @@ body {
 
 .table-controls {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--slate-200);
 }
@@ -701,11 +710,19 @@ body {
   background: var(--white);
 }
 
-.search-placeholder {
-  color: var(--slate-400);
+.search-input {
+  color: var(--slate-700);
   font-size: 14px;
   font-weight: 400;
   line-height: 14px;
+  border: none;
+  outline: none;
+  background: transparent;
+  width: 100%;
+}
+
+.search-input::placeholder {
+  color: var(--slate-400);
 }
 
 .columns-button {
@@ -938,8 +955,8 @@ body {
 
 .popup-filter-controls {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--slate-200);
 }
