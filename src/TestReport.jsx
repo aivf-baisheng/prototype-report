@@ -514,7 +514,21 @@ const TestReport = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedBundles, setSelectedBundles] = useState([]);
   const [selectedRecipes, setSelectedRecipes] = useState([]);
-  const [selectedScores, setSelectedScores] = useState([]);
+  const [selectedScores, setSelectedScores] = useState([0, 1]);  // Default scores can be set immediately
+
+  // Initialize filters with all values when data is loaded
+  useEffect(() => {
+    if (bundleItems.length > 0) {
+      // Set all bundle names
+      setSelectedBundles(bundleItems.map(bundle => bundle.name));
+      
+      // Set all unique recipe names
+      const allRecipes = bundleItems.flatMap(bundle => 
+        bundle.recipes.map(recipe => recipe.name)
+      ).filter((name, index, self) => self.indexOf(name) === index);
+      setSelectedRecipes(allRecipes);
+    }
+  }, [bundleItems]);
   const [editingPrompt, setEditingPrompt] = useState(null);
   const [editNote, setEditNote] = useState('');
   const chartContentRef = useRef(null);
