@@ -37,11 +37,13 @@ async def get_bundles():
             for bundle in data["bundles"]:
                 transformed_bundle = {
                     "name": bundle["name"],
-                    "score": bundle["percentage"],  # Frontend expects 'score' instead of 'percentage'
+                    "percentage": bundle["percentage"],
                     "recipes": [
                         {
                             "name": recipe["recipe_name"],
-                            "score": recipe["percentage"],
+                            "percentage": recipe["percentage"],
+                            "ci_minimum_band": recipe["ci_minimum_band"],
+                            "ci_maximum_band": recipe["ci_maximum_band"],
                             "prompts": recipe["prompts"]
                         }
                         for recipe in bundle["recipes"]

@@ -145,7 +145,7 @@ const TestReport = () => {
                   <div key={index} className="bundle-item">
                     <span className="bundle-name">{bundle.name}</span>
                     <div className="success-badge">
-                      <span>{bundle.score}%</span>
+                      <span>{bundle.percentage}%</span>
                     </div>
                   </div>
                 ))
@@ -217,7 +217,7 @@ const TestReport = () => {
                       <div className="chart-title-row">
                         <span className="chart-title">{bundle.name}</span>
                         <div className="success-badge">
-                          <span>{bundle.score}%</span>
+                          <span>{bundle.percentage}%</span>
                         </div>
                       </div>
                       <svg
@@ -248,16 +248,22 @@ const TestReport = () => {
                             <div key={index} className="bar-container">
                               <div 
                                 className="progress-bar" 
-                                style={{width: `${recipe.score * 4}px`}}
+                                style={{width: `${recipe.percentage * 4}px`}}
                               ></div>
-                              <div className="confidence-box"></div>
+                              <div 
+                                className="confidence-interval-bar"
+                                style={{
+                                  left: `${recipe.ci_minimum_band * 4}px`,
+                                  width: `${(recipe.ci_maximum_band - recipe.ci_minimum_band) * 4}px`
+                                }}
+                              ></div>
                             </div>
                           ))}
                         </div>
                         <div className="chart-values">
                           {bundle.recipes.map((recipe, index) => (
                             <div key={index} className="value-row">
-                              <span className="chart-value">~{recipe.score}%</span>
+                              <span className="chart-value">{recipe.percentage}%</span>
                             </div>
                           ))}
                         </div>
