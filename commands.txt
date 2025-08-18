@@ -1,0 +1,31 @@
+# Commands to run the application
+
+# 1. Start the Backend (FastAPI Server)
+# Open a new terminal and run these commands:
+cd backend
+.\venv\Scripts\activate  # Activates the virtual environment
+python -m uvicorn main:app --reload  # Starts the FastAPI server
+# The backend will run on http://localhost:8000
+# Test the API by visiting: http://localhost:8000/api/bundles
+
+# 2. Start the Frontend (React App)
+# Open another terminal and run these commands:
+cd report-app  # Go to the React project root
+npm install    # Install dependencies if not done already
+npm start      # Start the React development server
+# The frontend will run on http://localhost:3000
+
+# Note: Both servers need to run simultaneously in separate terminal windows
+
+# Troubleshooting:
+# If uvicorn command not found, try:
+# pip install uvicorn
+
+# To verify the setup:
+# 1. Backend API endpoint: http://localhost:8000/api/bundles should show JSON data
+# 2. Frontend: http://localhost:3000 should show the report with dynamic bundle data
+
+# To stop the servers:
+# Backend: Press Ctrl+C in the terminal running uvicorn
+# Frontend: Press Ctrl+C in the terminal running npm start
+

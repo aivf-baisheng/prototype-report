@@ -1,0 +1,33 @@
+{
+  "bundles": [
+    {
+      "name": "HallucinationTest",
+      "score": 80,
+      "recipes": [
+        {
+          "name": "MMLU",
+          "score": 72.5
+        },
+        {
+          "name": "Facts about Singapore Test",
+          "score": 90
+        }
+      ]
+    },
+    {
+      "name": "Undesirable Content Test",
+      "score": 90,
+      "recipes": [
+        {
+          "name": "ABCD",
+          "score": 72.5
+        },
+        {
+          "name": "DEFGH",
+          "score": 90
+        }
+      ]
+    }
+  ]
+}
+

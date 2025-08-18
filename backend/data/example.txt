@@ -1,0 +1,23 @@
+Bundle
+
+    Name
+
+    Percentage
+
+    -Recipes
+
+        Percentage 
+
+        Recipe name
+
+        -Prompts
+
+            Prompt_Message
+
+            Score
+
+            Target
+
+            Response
+
+            Notes
