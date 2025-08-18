@@ -12,7 +12,32 @@ const TestReport = () => {
   const [error, setError] = useState(null);
   const [lineHeight, setLineHeight] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [selectedBundles, setSelectedBundles] = useState([]);
+  const [selectedRecipes, setSelectedRecipes] = useState([]);
+  const [selectedScores, setSelectedScores] = useState([]);
   const chartContentRef = useRef(null);
+  const bundleFilterRef = useRef(null);
+  const recipeFilterRef = useRef(null);
+  const scoreFilterRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const clickedOutsideAll = 
+        (!bundleFilterRef.current || !bundleFilterRef.current.contains(event.target)) &&
+        (!recipeFilterRef.current || !recipeFilterRef.current.contains(event.target)) &&
+        (!scoreFilterRef.current || !scoreFilterRef.current.contains(event.target));
+
+      if (clickedOutsideAll) {
+        setIsFilterOpen(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Function to fetch bundle data
   const fetchBundleData = async () => {
@@ -76,23 +101,44 @@ const TestReport = () => {
   };
 
   const filterData = (data) => {
-    if (!searchTerm) return data;
-    const searchLower = searchTerm.toLowerCase();
+    let filteredData = structuredClone(data);
     
-    return data.map(bundle => ({
-      ...bundle,
-      recipes: bundle.recipes.map(recipe => ({
-        ...recipe,
-        prompts: recipe.prompts.filter(prompt => 
-          prompt.prompt_message?.toLowerCase().includes(searchLower) ||
-          prompt.target?.toLowerCase().includes(searchLower) ||
-          prompt.response?.toLowerCase().includes(searchLower) ||
-          prompt.notes?.toLowerCase().includes(searchLower) ||
-          bundle.name.toLowerCase().includes(searchLower) ||
-          recipe.name.toLowerCase().includes(searchLower)
-        )
-      })).filter(recipe => recipe.prompts.length > 0)
-    })).filter(bundle => bundle.recipes.length > 0);
+    // Apply all active filters to each prompt
+    filteredData = filteredData.map(bundle => {
+      const filteredRecipes = bundle.recipes.map(recipe => {
+        const filteredPrompts = recipe.prompts.filter(prompt => {
+          const matchesBundle = selectedBundles.length === 0 || selectedBundles.includes(bundle.name);
+          const matchesRecipe = selectedRecipes.length === 0 || selectedRecipes.includes(recipe.name);
+          const matchesScore = selectedScores.length === 0 || selectedScores.includes(prompt.score);
+          
+          let matchesSearch = true;
+          if (searchTerm) {
+            const searchLower = searchTerm.toLowerCase();
+            matchesSearch = 
+              prompt.prompt_message?.toLowerCase().includes(searchLower) ||
+              prompt.target?.toLowerCase().includes(searchLower) ||
+              prompt.response?.toLowerCase().includes(searchLower) ||
+              prompt.notes?.toLowerCase().includes(searchLower) ||
+              bundle.name.toLowerCase().includes(searchLower) ||
+              recipe.name.toLowerCase().includes(searchLower);
+          }
+
+          return matchesBundle && matchesRecipe && matchesScore && matchesSearch;
+        });
+
+        return {
+          ...recipe,
+          prompts: filteredPrompts
+        };
+      }).filter(recipe => recipe.prompts.length > 0); // Remove recipes with no matching prompts
+
+      return {
+        ...bundle,
+        recipes: filteredRecipes
+      };
+    }).filter(bundle => bundle.recipes.length > 0); // Remove bundles with no matching recipes
+
+    return filteredData;
   };
 
   return (
@@ -341,17 +387,103 @@ const TestReport = () => {
             <div className="table-controls">
               <div className="filter-controls">
                 <span className="filter-label">Filter:</span>
-                <div className="filter-tag">
+                <div className="filter-tag" ref={bundleFilterRef} onClick={() => setIsFilterOpen(current => current === 'bundles' ? null : 'bundles')}>
                   <span className="tag-label">Bundles</span>
-                  <span className="tag-count">All (2)</span>
+                  <span className="tag-count">
+                    {selectedBundles.length ? `Selected (${selectedBundles.length})` : 'All'}
+                  </span>
+                  {isFilterOpen === 'bundles' && (
+                    <div className="filter-dropdown">
+                      {bundleItems.map(bundle => bundle.name)
+                      .filter((name, index, self) => self.indexOf(name) === index)
+                      .map(bundleName => (
+                        <div 
+                          key={bundleName} 
+                          className={`filter-item ${selectedBundles.includes(bundleName) ? 'selected' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedBundles(prev => 
+                              prev.includes(bundleName) 
+                                ? prev.filter(b => b !== bundleName)
+                                : [...prev, bundleName]
+                            );
+                          }}
+                        >
+                          <span>{bundleName}</span>
+                          {selectedBundles.includes(bundleName) && (
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                              <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="filter-tag">
+                <div className="filter-tag" ref={recipeFilterRef} onClick={() => setIsFilterOpen(current => current === 'recipes' ? null : 'recipes')}>
                   <span className="tag-label">Recipes</span>
-                  <span className="tag-count">All (5)</span>
+                  <span className="tag-count">
+                    {selectedRecipes.length ? `Selected (${selectedRecipes.length})` : 'All'}
+                  </span>
+                  {isFilterOpen === 'recipes' && (
+                    <div className="filter-dropdown">
+                      {bundleItems.flatMap(bundle => 
+                        bundle.recipes.map(recipe => recipe.name)
+                      ).filter((name, index, self) => self.indexOf(name) === index)
+                      .map(recipeName => (
+                        <div 
+                          key={recipeName} 
+                          className={`filter-item ${selectedRecipes.includes(recipeName) ? 'selected' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedRecipes(prev => 
+                              prev.includes(recipeName) 
+                                ? prev.filter(r => r !== recipeName)
+                                : [...prev, recipeName]
+                            );
+                          }}
+                        >
+                          <span>{recipeName}</span>
+                          {selectedRecipes.includes(recipeName) && (
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                              <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="filter-tag">
+                <div className="filter-tag" ref={scoreFilterRef} onClick={() => setIsFilterOpen(current => current === 'scores' ? null : 'scores')}>
                   <span className="tag-label">Scores</span>
-                  <span className="tag-count">All (2)</span>
+                  <span className="tag-count">
+                    {selectedScores.length ? `Selected (${selectedScores.length})` : 'All'}
+                  </span>
+                  {isFilterOpen === 'scores' && (
+                    <div className="filter-dropdown">
+                      {[0, 1].map(score => (
+                        <div 
+                          key={score} 
+                          className={`filter-item ${selectedScores.includes(score) ? 'selected' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedScores(prev => 
+                              prev.includes(score) 
+                                ? prev.filter(s => s !== score)
+                                : [...prev, score]
+                            );
+                          }}
+                        >
+                          <span>{score}</span>
+                          {selectedScores.includes(score) && (
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                              <path d="M13.3334 4L6.00004 11.3333L2.66671 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="view-controls">
