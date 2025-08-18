@@ -8,6 +8,11 @@ const TestReport = () => {
   const [selectedView, setSelectedView] = useState('list');
   const [selectedBundle, setSelectedBundle] = useState(null);
   const [bundleItems, setBundleItems] = useState([]);
+  
+  // For debugging
+  useEffect(() => {
+    console.log('Bundle items updated:', bundleItems);
+  }, [bundleItems]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lineHeight, setLineHeight] = useState(0);
@@ -709,10 +714,36 @@ const TestReport = () => {
                             </div>
                             <button 
                               className="save-button"
-                              onClick={() => {
-                                // Here you would typically make an API call to save the changes
-                                console.log('Save changes:', editingPrompt);
-                                setEditingPrompt(null);
+                              onClick={async () => {
+                                console.log('Save clicked');
+                                console.log('Current editing prompt:', editingPrompt);
+                                
+                                try {
+                                  // First update the server
+                                  const response = await fetch(`http://localhost:8000/api/bundles/update_prompt`, {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                      prompt_id: editingPrompt.id,
+                                      score: editingPrompt.score,
+                                      notes: editingPrompt.notes
+                                    }),
+                                  });
+
+                                  if (!response.ok) {
+                                    throw new Error('Failed to update prompt');
+                                  }
+
+                                  // If server update successful, fetch fresh data
+                                  await fetchBundleData();
+                                  setEditingPrompt(null);
+                                } catch (error) {
+                                  console.error('Error updating prompt:', error);
+                                  // Optionally show error to user
+                                  alert('Failed to save changes. Please try again.');
+                                }
                               }}
                             >
                               Save
