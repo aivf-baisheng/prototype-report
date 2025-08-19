@@ -818,6 +818,24 @@ body {
   text-align: left;
   min-width: 0;
   padding-right: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s ease;
+}
+
+.header-cell:hover {
+  color: var(--slate-700);
+}
+
+.header-cell.sorted {
+  color: var(--slate-700);
+  font-weight: 500;
+}
+
+.header-cell svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s ease;
 }
 
 .table-row {

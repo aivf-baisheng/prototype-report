@@ -55,64 +55,168 @@ const DataTable = ({
   columnConfig = defaultColumnConfig,
   isPopup = false
 }) => {
+  const [sortConfig, setSortConfig] = useState({
+    key: null,
+    direction: 'asc'
+  });
   const gridStyle = {
     gridTemplateColumns: generateGridTemplateColumns(columnConfig, isPopup)
   };
   console.log('DataTable data:', data);
 
-  const filterData = (data) => {
-    let filteredData = structuredClone(data);
-    
-    // Add unique IDs to prompts if they don't have them
-    filteredData.forEach((bundle, bundleIndex) => {
-      bundle.recipes.forEach((recipe, recipeIndex) => {
-        recipe.prompts.forEach((prompt, promptIndex) => {
-          if (!prompt.id) {
-            prompt.id = `${bundleIndex}-${recipeIndex}-${promptIndex}`;
-          }
+  const handleSort = (key) => {
+    setSortConfig(prevConfig => ({
+      key,
+      direction: prevConfig.key === key && prevConfig.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const flattenData = (data) => {
+    const flattened = [];
+    data.forEach(bundle => {
+      bundle.recipes.forEach(recipe => {
+        recipe.prompts.forEach(prompt => {
+          flattened.push({
+            bundle: bundle.name,
+            recipe: recipe.name,
+            prompt_message: prompt.prompt_message,
+            target: prompt.target,
+            response: prompt.response,
+            score: prompt.score,
+            notes: prompt.notes,
+            id: prompt.id
+          });
         });
       });
     });
-    
-    // Apply all active filters to each prompt
-    filteredData = filteredData.map(bundle => {
-      const filteredRecipes = bundle.recipes.map(recipe => {
-        const filteredPrompts = recipe.prompts.filter(prompt => {
-          const matchesBundle = selectedBundles.length === 0 || selectedBundles.includes(bundle.name);
-          const matchesRecipe = selectedRecipes.length === 0 || selectedRecipes.includes(recipe.name);
-          const matchesScore = selectedScores.length === 0 || selectedScores.includes(prompt.score);
-          
-          let matchesSearch = true;
-          if (searchTerm) {
-            const searchLower = searchTerm.toLowerCase();
-            matchesSearch = 
-              prompt.prompt_message?.toLowerCase().includes(searchLower) ||
-              prompt.target?.toLowerCase().includes(searchLower) ||
-              prompt.response?.toLowerCase().includes(searchLower) ||
-              prompt.notes?.toLowerCase().includes(searchLower) ||
-              bundle.name.toLowerCase().includes(searchLower) ||
-              recipe.name.toLowerCase().includes(searchLower);
-          }
-
-          return matchesBundle && matchesRecipe && matchesScore && matchesSearch;
-        });
-
-        return {
-          ...recipe,
-          prompts: filteredPrompts
-        };
-      }).filter(recipe => recipe.prompts.length > 0); // Remove recipes with no matching prompts
-
-      return {
-        ...bundle,
-        recipes: filteredRecipes
-      };
-    }).filter(bundle => bundle.recipes.length > 0); // Remove bundles with no matching recipes
-
-    return filteredData;
+    return flattened;
   };
 
-  console.log('DataTable filtered data:', filterData(data));
+  const sortData = (data) => {
+    if (!sortConfig.key) return data;
+
+    // First, flatten the data structure
+    const flattenedData = flattenData(data);
+
+    // Sort the flattened data
+    flattenedData.sort((a, b) => {
+      let aValue, bValue;
+
+      // Extract values based on the column key
+      switch (sortConfig.key) {
+        case 'bundle':
+          aValue = a.bundle;
+          bValue = b.bundle;
+          break;
+        case 'recipe':
+          aValue = a.recipe;
+          bValue = b.recipe;
+          break;
+        case 'prompt':
+          aValue = a.prompt_message;
+          bValue = b.prompt_message;
+          break;
+        case 'target':
+          aValue = a.target;
+          bValue = b.target;
+          break;
+        case 'response':
+          aValue = a.response;
+          bValue = b.response;
+          break;
+        case 'score':
+          aValue = a.score;
+          bValue = b.score;
+          break;
+        case 'notes':
+          aValue = a.notes;
+          bValue = b.notes;
+          break;
+        default:
+          return 0;
+      }
+
+      // Handle null/undefined values
+      aValue = aValue ?? '';
+      bValue = bValue ?? '';
+
+      // Compare values
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
+      } else {
+        const comparison = String(aValue).localeCompare(String(bValue));
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
+      }
+    });
+
+    return flattenedData;
+  };
+
+  const filterAndSortData = (data) => {
+    // First, flatten the data
+    let flattenedData = [];
+    data.forEach((bundle, bundleIndex) => {
+      bundle.recipes.forEach((recipe, recipeIndex) => {
+        recipe.prompts.forEach((prompt, promptIndex) => {
+          // Add unique ID if not present
+          if (!prompt.id) {
+            prompt.id = `${bundleIndex}-${recipeIndex}-${promptIndex}`;
+          }
+          
+          flattenedData.push({
+            id: prompt.id,
+            bundle: bundle.name,
+            recipe: recipe.name,
+            prompt_message: prompt.prompt_message,
+            target: prompt.target,
+            response: prompt.response,
+            score: prompt.score,
+            notes: prompt.notes
+          });
+        });
+      });
+    });
+
+    // Apply filters
+    flattenedData = flattenedData.filter(row => {
+      const matchesBundle = selectedBundles.length === 0 || selectedBundles.includes(row.bundle);
+      const matchesRecipe = selectedRecipes.length === 0 || selectedRecipes.includes(row.recipe);
+      const matchesScore = selectedScores.length === 0 || selectedScores.includes(row.score);
+      
+      let matchesSearch = true;
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        matchesSearch = 
+          row.prompt_message?.toLowerCase().includes(searchLower) ||
+          row.target?.toLowerCase().includes(searchLower) ||
+          row.response?.toLowerCase().includes(searchLower) ||
+          row.notes?.toLowerCase().includes(searchLower) ||
+          row.bundle.toLowerCase().includes(searchLower) ||
+          row.recipe.toLowerCase().includes(searchLower);
+      }
+
+      return matchesBundle && matchesRecipe && matchesScore && matchesSearch;
+    });
+
+    // Apply sorting if configured
+    if (sortConfig.key) {
+      flattenedData.sort((a, b) => {
+        let aValue = a[sortConfig.key === 'prompt' ? 'prompt_message' : sortConfig.key] ?? '';
+        let bValue = b[sortConfig.key === 'prompt' ? 'prompt_message' : sortConfig.key] ?? '';
+
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
+        } else {
+          const comparison = String(aValue).localeCompare(String(bValue));
+          return sortConfig.direction === 'asc' ? comparison : -comparison;
+        }
+      });
+    }
+
+    return flattenedData;
+  };
+
+  console.log('DataTable filtered and sorted data:', filterAndSortData(data));
   return (
     <div className="data-table-section">
       <div className="table-controls">
@@ -267,22 +371,85 @@ const DataTable = ({
       {/* Data Table */}
       <div className="data-table">
         <div className="table-header" style={gridStyle}>
-          {showBundleFilter && <div className="header-cell bundle-header">Bundle</div>}
-          <div className="header-cell recipe-header">Recipe</div>
-          <div className="header-cell prompt-header">Prompt</div>
-          <div className="header-cell target-header">Target</div>
-          <div className="header-cell response-header">Response</div>
-          <div className="header-cell score-header">
-            <span>Score</span>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M7.33337 7.33337H10" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M7.33337 10H12" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M7.33337 12.6666H14" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M6 4.66663L4 2.66663L2 4.66663" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M4 4V13.3333" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+          {showBundleFilter && (
+            <div 
+              className={`header-cell bundle-header ${sortConfig.key === 'bundle' ? 'sorted' : ''}`}
+              onClick={() => handleSort('bundle')}
+            >
+              <span>Bundle</span>
+              {sortConfig.key === 'bundle' && (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: sortConfig.direction === 'desc' ? 'rotate(180deg)' : 'none' }}>
+                  <path d="M8 4L4 8L12 8L8 4Z" fill="currentColor"/>
+                </svg>
+              )}
+            </div>
+          )}
+          <div 
+            className={`header-cell recipe-header ${sortConfig.key === 'recipe' ? 'sorted' : ''}`}
+            onClick={() => handleSort('recipe')}
+          >
+            <span>Recipe</span>
+            {sortConfig.key === 'recipe' && (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: sortConfig.direction === 'desc' ? 'rotate(180deg)' : 'none' }}>
+                <path d="M8 4L4 8L12 8L8 4Z" fill="currentColor"/>
+              </svg>
+            )}
           </div>
-          <div className="header-cell notes-header">Notes</div>
+          <div 
+            className={`header-cell prompt-header ${sortConfig.key === 'prompt' ? 'sorted' : ''}`}
+            onClick={() => handleSort('prompt')}
+          >
+            <span>Prompt</span>
+            {sortConfig.key === 'prompt' && (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: sortConfig.direction === 'desc' ? 'rotate(180deg)' : 'none' }}>
+                <path d="M8 4L4 8L12 8L8 4Z" fill="currentColor"/>
+              </svg>
+            )}
+          </div>
+          <div 
+            className={`header-cell target-header ${sortConfig.key === 'target' ? 'sorted' : ''}`}
+            onClick={() => handleSort('target')}
+          >
+            <span>Target</span>
+            {sortConfig.key === 'target' && (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: sortConfig.direction === 'desc' ? 'rotate(180deg)' : 'none' }}>
+                <path d="M8 4L4 8L12 8L8 4Z" fill="currentColor"/>
+              </svg>
+            )}
+          </div>
+          <div 
+            className={`header-cell response-header ${sortConfig.key === 'response' ? 'sorted' : ''}`}
+            onClick={() => handleSort('response')}
+          >
+            <span>Response</span>
+            {sortConfig.key === 'response' && (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: sortConfig.direction === 'desc' ? 'rotate(180deg)' : 'none' }}>
+                <path d="M8 4L4 8L12 8L8 4Z" fill="currentColor"/>
+              </svg>
+            )}
+          </div>
+          <div 
+            className={`header-cell score-header ${sortConfig.key === 'score' ? 'sorted' : ''}`}
+            onClick={() => handleSort('score')}
+          >
+            <span>Score</span>
+            {sortConfig.key === 'score' && (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: sortConfig.direction === 'desc' ? 'rotate(180deg)' : 'none' }}>
+                <path d="M8 4L4 8L12 8L8 4Z" fill="currentColor"/>
+              </svg>
+            )}
+          </div>
+          <div 
+            className={`header-cell notes-header ${sortConfig.key === 'notes' ? 'sorted' : ''}`}
+            onClick={() => handleSort('notes')}
+          >
+            <span>Notes</span>
+            {sortConfig.key === 'notes' && (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: sortConfig.direction === 'desc' ? 'rotate(180deg)' : 'none' }}>
+                <path d="M8 4L4 8L12 8L8 4Z" fill="currentColor"/>
+              </svg>
+            )}
+          </div>
         </div>
 
         {loading ? (
@@ -290,61 +457,57 @@ const DataTable = ({
         ) : error ? (
           <div>Error: {error}</div>
         ) : (
-          filterData(data).map((bundle) => 
-            bundle.recipes.map((recipe) =>
-              recipe.prompts.map((prompt, promptIndex) => (
-                <div key={`${bundle.name}-${recipe.name}-${promptIndex}`} 
-                     className={`table-row ${promptIndex === 0 ? 'highlighted-row' : ''}`}
-                     style={gridStyle}>
-                  {showBundleFilter && <div className="table-cell">{bundle.name}</div>}
-                  <div className="table-cell">{recipe.name}</div>
-                  <div className="table-cell prompt-text">{prompt.prompt_message}</div>
-                  <div className="table-cell">{prompt.target}</div>
-                  <div className="table-cell">{prompt.response}</div>
-                  <EditableCell 
-                    prompt={prompt}
-                    type="score"
-                    showCheckIcon={promptIndex === 0}
-                    onEdit={(element) => {
-                      setEditingPrompt(editingPrompt?.id === prompt.id ? null : {
-                        id: prompt.id,
-                        score: prompt.score,
-                        notes: prompt.notes,
-                        element,
-                        isScoreOpen: false
-                      });
-                    }}
-                  />
-                  <EditableCell 
-                    prompt={prompt}
-                    type="notes"
-                    onEdit={(element) => {
-                      setEditingPrompt(editingPrompt?.id === prompt.id ? null : {
-                        id: prompt.id,
-                        score: prompt.score,
-                        notes: prompt.notes,
-                        element,
-                        isScoreOpen: false
-                      });
-                    }}
-                  />
-                  {editingPrompt?.id === prompt.id && (
-                    <EditDropdown 
-                      editingPrompt={editingPrompt}
-                      editDropdownRef={editDropdownRef}
-                      onClose={(shouldRefresh) => {
-                        setEditingPrompt(null);
-                        if (shouldRefresh) {
-                          fetchBundleData();
-                        }
-                      }}
-                      onSave={setEditingPrompt}
-                    />
-                  )}
-                </div>
-              ))
-            )
-          )
+          filterAndSortData(data).map((row, index) => (
+            <div key={row.id} 
+                 className={`table-row ${index === 0 ? 'highlighted-row' : ''}`}
+                 style={gridStyle}>
+              {showBundleFilter && <div className="table-cell">{row.bundle}</div>}
+              <div className="table-cell">{row.recipe}</div>
+              <div className="table-cell prompt-text">{row.prompt_message}</div>
+              <div className="table-cell">{row.target}</div>
+              <div className="table-cell">{row.response}</div>
+              <EditableCell 
+                prompt={row}
+                type="score"
+                showCheckIcon={index === 0}
+                onEdit={(element) => {
+                  setEditingPrompt(editingPrompt?.id === row.id ? null : {
+                    id: row.id,
+                    score: row.score,
+                    notes: row.notes,
+                    element,
+                    isScoreOpen: false
+                  });
+                }}
+              />
+              <EditableCell 
+                prompt={row}
+                type="notes"
+                onEdit={(element) => {
+                  setEditingPrompt(editingPrompt?.id === row.id ? null : {
+                    id: row.id,
+                    score: row.score,
+                    notes: row.notes,
+                    element,
+                    isScoreOpen: false
+                  });
+                }}
+              />
+              {editingPrompt?.id === row.id && (
+                <EditDropdown 
+                  editingPrompt={editingPrompt}
+                  editDropdownRef={editDropdownRef}
+                  onClose={(shouldRefresh) => {
+                    setEditingPrompt(null);
+                    if (shouldRefresh) {
+                      fetchBundleData();
+                    }
+                  }}
+                  onSave={setEditingPrompt}
+                />
+              )}
+            </div>
+          ))
         )}
       </div>
     </div>
