@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Line, ReferenceLine } from 'recharts';
 
 const defaultColumnConfig = {
   main: {
@@ -676,7 +677,7 @@ const TestReport = () => {
   }, [bundleItems]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [lineHeight, setLineHeight] = useState(0);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedBundles, setSelectedBundles] = useState([]);
@@ -779,20 +780,23 @@ const TestReport = () => {
     console.log('Processing bundle data:', data);
     
     const processed = data.map(bundle => {
-      const calculatedBundlePercentage = calculateBundlePercentage(bundle);
+      // Use existing bundle percentage if available, otherwise calculate
+      const bundlePercentage = bundle.percentage !== undefined ? bundle.percentage : calculateBundlePercentage(bundle);
+      
       const processedRecipes = bundle.recipes.map(recipe => {
-        const calculatedRecipePercentage = calculateRecipePercentage(recipe);
-        console.log(`Recipe ${recipe.name}: calculated percentage = ${calculatedRecipePercentage}%`);
+        // Use existing recipe percentage if available, otherwise calculate
+        const recipePercentage = recipe.percentage !== undefined ? recipe.percentage : calculateRecipePercentage(recipe);
+        console.log(`Recipe ${recipe.name}: using percentage = ${recipePercentage}%`);
         return {
           ...recipe,
-          percentage: calculatedRecipePercentage
+          percentage: recipePercentage
         };
       });
       
-      console.log(`Bundle ${bundle.name}: calculated percentage = ${calculatedBundlePercentage}%`);
+      console.log(`Bundle ${bundle.name}: using percentage = ${bundlePercentage}%`);
       return {
         ...bundle,
-        percentage: calculatedBundlePercentage,
+        percentage: bundlePercentage,
         recipes: processedRecipes
       };
     });
@@ -816,7 +820,6 @@ const TestReport = () => {
   }, [bundleItems]);
   const [editingPrompt, setEditingPrompt] = useState(null);
   const [editNote, setEditNote] = useState('');
-  const chartContentRef = useRef(null);
   const editDropdownRef = useRef(null);
   const bundleFilterRef = useRef(null);
   const recipeFilterRef = useRef(null);
@@ -888,24 +891,7 @@ const TestReport = () => {
     }
   }, [bundleItems]);
 
-  // Update line height when content changes or window resizes
-  useEffect(() => {
-    const updateHeight = () => {
-      if (chartContentRef.current) {
-        const height = chartContentRef.current.offsetHeight;
-        console.log('Chart content height:', height);
-        setLineHeight(height);
-      }
-    };
 
-    // Wait for content to be rendered
-    setTimeout(updateHeight, 0);
-    window.addEventListener('resize', updateHeight);
-
-    return () => {
-      window.removeEventListener('resize', updateHeight);
-    };
-  }, [bundleItems]);
 
   const handleBundleClick = (bundleName) => {
     setSelectedBundle(bundleName);
@@ -1054,48 +1040,44 @@ const TestReport = () => {
                         <path d="M8 3.83337L12.6667 8.50004L8 13.1667" stroke="#64748B" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </div>
-                    <div className="chart-content" ref={chartContentRef}>
-                      <div className="chart-visualization">
-                        <div className="chart-labels">
-                          {bundle.recipes.map((recipe, index) => (
-                            <div key={index} className="label-row">
-                              <span className="chart-label">{recipe.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="chart-divider"></div>
-                        <div className="chart-bars">
-                          {bundle.recipes.map((recipe, index) => (
-                            <div key={index} className="bar-container">
-                              <div 
-                                className="progress-bar" 
-                                style={{width: `${recipe.percentage}%`}}
-                              ></div>
-                              <div 
-                                className="vertical-dotted-line"
-                                style={{
-                                  left: `${recipe.percentage}%`,
-                                  height: `${lineHeight}px`
-                                }}
-                              ></div>
-                              <div 
-                                className="confidence-interval-bar"
-                                style={{
-                                  left: `${recipe.ci_minimum_band}%`,
-                                  width: `${recipe.ci_maximum_band - recipe.ci_minimum_band}%`
-                                }}
-                              ></div>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="chart-values">
-                          {bundle.recipes.map((recipe, index) => (
-                            <div key={index} className="value-row">
-                              <span className="chart-value">{recipe.percentage}%</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                    <div className="chart-content">
+                      {console.log('Chart data for bundle:', bundle.name, bundle.recipes)}
+                      <ResponsiveContainer width="100%" height={200}>
+                        <ComposedChart
+                          data={bundle.recipes}
+                          layout="horizontal"
+                          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis 
+                            type="number" 
+                            domain={[0, 100]}
+                            tickFormatter={(value) => `${value}%`}
+                          />
+                          <YAxis 
+                            type="category" 
+                            dataKey="name"
+                            width={80}
+                          />
+                          <Tooltip 
+                            formatter={(value, name) => [`${value}%`, name]}
+                            labelFormatter={(label) => `Recipe: ${label}`}
+                          />
+                          <Bar 
+                            dataKey="percentage" 
+                            fill="#3B82F6" 
+                            radius={[0, 4, 4, 0]}
+                            barSize={30}
+                            minPointSize={5}
+                          />
+                          <ReferenceLine 
+                            x={bundle.percentage} 
+                            stroke="#EF4444" 
+                            strokeDasharray="3 3"
+                            label={{ value: `Bundle: ${bundle.percentage}%`, position: 'top' }}
+                          />
+                        </ComposedChart>
+                      </ResponsiveContainer>
                     </div>
                     <div className="chart-footer">
                       <div className="scale-line"></div>
@@ -1107,7 +1089,7 @@ const TestReport = () => {
                       <svg width="13" height="12" viewBox="0 0 13 12" fill="none">
                         <circle cx="6.5" cy="6" r="5.5" stroke="#334155" strokeDasharray="2 2"/>
                       </svg>
-                      <span>Confidence interval</span>
+                      <span>Bundle average</span>
                     </div>
                   </div>
                 ))

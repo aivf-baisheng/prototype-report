@@ -417,13 +417,11 @@ body {
 }
 
 .chart-content {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
   width: 100%;
-  flex: 1;
+  height: 250px;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
 }
 
 .chart-visualization {
@@ -1305,4 +1303,41 @@ body {
     gap: 20px;
     padding: 8px 12px;
   }
+}
+
+/* Recharts styling */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: var(--slate-200);
+  stroke-opacity: 0.5;
+}
+
+.recharts-bar-rectangle {
+  stroke: #3B82F6;
+  stroke-width: 1;
+}
+
+.recharts-bar {
+  fill: #3B82F6;
+}
+
+.recharts-tooltip-wrapper {
+  background: var(--white);
+  border: 1px solid var(--slate-200);
+  border-radius: 6px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.recharts-text {
+  font-family: Inter, -apple-system, Roboto, Helvetica, sans-serif;
+  font-size: 12px;
+  fill: var(--slate-500);
+}
+
+.recharts-tooltip-content {
+  padding: 8px 12px;
+}
+
+.recharts-tooltip-item {
+  color: var(--slate-500);
 }
