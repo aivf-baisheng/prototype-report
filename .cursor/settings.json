@@ -1,0 +1,13 @@
+{
+  "terminal.integrated.env.osx": {
+    "CONDA_DEFAULT_ENV": "nodejs-lts"
+  },
+  "terminal.integrated.profiles.osx": {
+    "conda-nodejs": {
+      "path": "/opt/miniconda3/bin/conda",
+      "args": ["run", "-n", "nodejs-lts", "zsh"]
+    }
+  },
+  "terminal.integrated.defaultProfile.osx": "conda-nodejs"
+}
+

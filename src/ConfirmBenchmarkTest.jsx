@@ -1,7 +1,4 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import NavigationSidebar from "./components/NavigationSidebar";
-import "./ConfirmBenchmarkTest.css";
 
 // Import all the SVG icons as React components or URLs
 const ICONS = {
@@ -17,7 +14,6 @@ const ICONS = {
 };
 
 const ConfirmBenchmarkTest = () => {
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   
@@ -30,7 +26,8 @@ const ConfirmBenchmarkTest = () => {
   const [sliderProgress, setSliderProgress] = useState(22); // px value for visual progress
 
   const handleBack = () => {
-    navigate(-1);
+    // Handle back navigation - could be passed as prop or use window.history
+    window.history.back();
   };
 
   const handleStartTest = async () => {
@@ -70,15 +67,15 @@ const ConfirmBenchmarkTest = () => {
 
   return (
     <div className="confirm-benchmark">
-      <NavigationSidebar />
+
 
       {/* Breadcrumbs */}
       <nav className="confirm-benchmark-breadcrumbs" aria-label="Breadcrumb navigation">
-        <a href="#" onClick={(e) => { e.preventDefault(); navigate("/create"); }}>Create Benchmark Test</a>
+        <a href="#" onClick={(e) => { e.preventDefault(); }}>Create Benchmark Test</a>
         <img src={ICONS.chevronRight} alt="" aria-hidden="true" />
-        <a href="#" onClick={(e) => { e.preventDefault(); navigate("/select-endpoint"); }}>Select Endpoint</a>
+        <a href="#" onClick={(e) => { e.preventDefault(); }}>Select Endpoint</a>
         <img src={ICONS.chevronRight} alt="" aria-hidden="true" />
-        <a href="#" onClick={(e) => { e.preventDefault(); navigate("/select-tests"); }}>Select Tests</a>
+        <a href="#" onClick={(e) => { e.preventDefault(); }}>Select Tests</a>
         <img src={ICONS.chevronRight} alt="" aria-hidden="true" />
         <span className="breadcrumb-current" aria-current="page">Confirm Benchmark Test</span>
       </nav>

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import NavigationSidebar from './components/NavigationSidebar';
 
 const defaultColumnConfig = {
   main: {
@@ -661,7 +660,7 @@ const EditDropdown = ({ editingPrompt, editDropdownRef, onClose, onSave }) => {
     </div>
   );
 };
-import './TestReport.css';
+
 
 // API endpoint configuration
 const API_URL = 'http://localhost:8000/api/bundles';
@@ -918,7 +917,6 @@ const TestReport = () => {
 
   return (
     <div className="test-report-container">
-      <NavigationSidebar />
 
       {/* Main Content */}
       <main className="main-content">

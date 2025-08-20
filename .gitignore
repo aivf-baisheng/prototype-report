@@ -4,6 +4,10 @@ dist/
 dist-ssr/
 *.local
 
+# Next.js
+.next/
+out/
+
 # Logs
 logs
 *.log
@@ -41,7 +45,6 @@ wheels/
 !.vscode/extensions.json
 !.vscode/tasks.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
@@ -54,3 +57,15 @@ wheels/
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Development
+*.tsbuildinfo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

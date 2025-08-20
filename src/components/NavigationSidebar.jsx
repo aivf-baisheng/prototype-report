@@ -1,15 +1,10 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import './NavigationSidebar.css';
 import { navigationIcons } from './navigationIcons';
 
-const NavigationSidebar = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const handleNavigation = (route) => {
-    if (route) {
-      navigate(route);
+const NavigationSidebar = ({ onViewChange, currentView }) => {
+  const handleNavigation = (viewName) => {
+    if (viewName) {
+      onViewChange(viewName);
     }
   };
 
@@ -19,13 +14,13 @@ const NavigationSidebar = () => {
         {navigationIcons.map((icon) => (
           <svg 
             key={icon.id}
-            className={`nav-icon ${location.pathname === icon.route ? 'active' : ''}`}
+            className={`nav-icon ${currentView === icon.viewName ? 'active' : ''}`}
             width="16" 
             height="16" 
             viewBox="0 0 16 16" 
             fill="none"
-            onClick={() => handleNavigation(icon.route)}
-            style={{ cursor: icon.route ? 'pointer' : 'default' }}
+            onClick={() => handleNavigation(icon.viewName)}
+            style={{ cursor: icon.viewName ? 'pointer' : 'default' }}
           >
             {icon.clipPath && (
               <g clipPath="url(#clip0_1_515)">
