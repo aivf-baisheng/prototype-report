@@ -8,6 +8,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import annotationPlugin from 'chartjs-plugin-annotation';
 import { Bar } from 'react-chartjs-2';
 
 // Register Chart.js components
@@ -17,7 +18,8 @@ ChartJS.register(
   BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  annotationPlugin
 );
 
 const defaultColumnConfig = {
@@ -46,6 +48,7 @@ const generateGridTemplateColumns = (config, isPopup) => {
     .map(([key, value]) => `minmax(${value.minWidth}px, ${value.flex}fr)`)
     .join(' ');
 };
+
 
 const DataTable = ({ 
   data, 
@@ -1112,6 +1115,19 @@ const TestReport = () => {
                                     return `Recipe: ${context.dataset.label} - ${context.parsed.x}%`;
                                   }
                                 }
+                              },
+                              annotation: {
+                                annotations: bundle.recipes.map((recipe, index) => ({
+                                  type: 'box',
+                                  xMin: recipe.ci_minimum_band,
+                                  xMax: recipe.ci_maximum_band,
+                                  yMin: index - 0.3,
+                                  yMax: index + 0.3,
+                                  backgroundColor: 'transparent',
+                                  borderColor: 'rgba(0, 0, 0, 1.0)',
+                                  borderWidth: 2,
+                                  drawTime: 'afterDatasetsDraw'
+                                }))
                               }
                             },
                             scales: {

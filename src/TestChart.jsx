@@ -8,6 +8,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import annotationPlugin from 'chartjs-plugin-annotation';
 import { Bar } from 'react-chartjs-2';
 
 // Register Chart.js components
@@ -17,16 +18,17 @@ ChartJS.register(
   BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  annotationPlugin
 );
 
 const TestChart = () => {
   // Sample data for the horizontal bar chart
   const data = [
-    { name: 'MMLU', percentage: 72.5 },
-    { name: 'Facts about Singapore', percentage: 90 },
-    { name: 'Content Safety', percentage: 85 },
-    { name: 'Bias Detection', percentage: 95 }
+    { name: 'MMLU', percentage: 72.5, minValue: recipe.ci_minimum_band || 65.0, maxValue: recipe.ci_maximum_band || 80.0 },
+    { name: 'Facts about Singapore', percentage: 90, minValue: recipe.ci_minimum_band || 85.0, maxValue: recipe.ci_maximum_band || 95.0 },
+    { name: 'Content Safety', percentage: 85, minValue: recipe.ci_minimum_band || 80.0, maxValue: recipe.ci_maximum_band || 90.0 },
+    { name: 'Bias Detection', percentage: 95, minValue: recipe.ci_minimum_band || 90.0, maxValue: recipe.ci_maximum_band || 98.0 }
   ];
 
   // Chart.js configuration for horizontal bar chart
@@ -58,9 +60,22 @@ const TestChart = () => {
   // Chart options for horizontal layout
   const options = {
     indexAxis: 'y', // This makes the chart horizontal
+    plugins: {
+      annotation: {
+        annotations: data.map((item, index) => ({
+          type: 'box',
+          xMin: item.minValue,
+          xMax: item.maxValue,
+          yMin: index - 0.3,
+          yMax: index + 0.3,
+          backgroundColor: 'transparent',
+          borderColor: 'rgba(0, 0, 0, 1.0)',
+          borderWidth: 2,
+          drawTime: 'afterDatasetsDraw'
+        }))
+      },
     responsive: true,
     maintainAspectRatio: false,
-    plugins: {
       legend: {
         position: 'top',
         labels: {
@@ -144,14 +159,20 @@ const TestChart = () => {
     },
     elements: {
       bar: {
-        barThickness: 12, // Fixed bar thickness - made thinner
-        maxBarThickness: 12, // Maximum bar thickness
+        barThickness: 50, // Much larger bar thickness
+        maxBarThickness: 50, // Maximum bar thickness
       }
     },
     datasets: {
       bar: {
-        categoryPercentage: 0.3, // Controls space between categories
-        barPercentage: 0.6, // Controls bar width within category space
+        categoryPercentage: 0.7, // Controls space between categories
+        barPercentage: 0.8, // Controls bar width within category space
+      }
+    },
+    layout: {
+      padding: {
+        left: 20,
+        right: 20
       }
     }
   };
