@@ -53,7 +53,9 @@ const DataTable = ({
   fetchBundleData,
   showBundleFilter = true,
   columnConfig = defaultColumnConfig,
-  isPopup = false
+  isPopup = false,
+  calculateTotalPromptCount,
+  bundleItems
 }) => {
   const [sortConfig, setSortConfig] = useState({
     key: null,
@@ -366,7 +368,9 @@ const DataTable = ({
         </div>
       </div>
 
-      <div className="prompts-count">216,906 prompts</div>
+      <div className="prompts-count">
+        {calculateTotalPromptCount(bundleItems).toLocaleString()} prompts
+      </div>
 
       {/* Data Table */}
       <div className="data-table">
@@ -680,6 +684,124 @@ const TestReport = () => {
   const [selectedRecipes, setSelectedRecipes] = useState([]);
   const [selectedScores, setSelectedScores] = useState([0, 1]);  // Default scores can be set immediately
 
+  // Function to calculate recipe percentage based on scores
+  const calculateRecipePercentage = (recipe) => {
+    console.log('Calculating recipe percentage for:', recipe.name, 'with prompts:', recipe.prompts);
+    if (!recipe.prompts || recipe.prompts.length === 0) {
+      console.log('No prompts found for recipe:', recipe.name);
+      return 0;
+    }
+    
+    const totalScore = recipe.prompts.reduce((sum, prompt) => sum + prompt.score, 0);
+    const percentage = (totalScore / recipe.prompts.length) * 100;
+    const roundedPercentage = Math.round(percentage * 10) / 10;
+    console.log(`Recipe ${recipe.name}: totalScore=${totalScore}, promptCount=${recipe.prompts.length}, percentage=${roundedPercentage}%`);
+    return roundedPercentage;
+  };
+
+  // Function to calculate bundle percentage based on recipe scores
+  const calculateBundlePercentage = (bundle) => {
+    console.log('Calculating bundle percentage for:', bundle.name, 'with recipes:', bundle.recipes);
+    if (!bundle.recipes || bundle.recipes.length === 0) {
+      console.log('No recipes found for bundle:', bundle.name);
+      return 0;
+    }
+    
+    const recipePercentages = bundle.recipes.map(recipe => calculateRecipePercentage(recipe));
+    console.log(`Bundle ${bundle.name}: recipe percentages:`, recipePercentages);
+    const averagePercentage = recipePercentages.reduce((sum, percentage) => sum + percentage, 0) / recipePercentages.length;
+    const roundedPercentage = Math.round(averagePercentage * 10) / 10;
+    console.log(`Bundle ${bundle.name}: average percentage = ${roundedPercentage}%`);
+    return roundedPercentage;
+  };
+
+  // Function to calculate overall confidence based on all scores
+  const calculateOverallConfidence = (data) => {
+    if (!data || data.length === 0) return 0;
+    
+    let totalScore = 0;
+    let totalPrompts = 0;
+    
+    data.forEach(bundle => {
+      bundle.recipes.forEach(recipe => {
+        recipe.prompts.forEach(prompt => {
+          totalScore += prompt.score;
+          totalPrompts += 1;
+        });
+      });
+    });
+    
+    if (totalPrompts === 0) return 0;
+    const confidence = (totalScore / totalPrompts) * 100;
+    return Math.round(confidence * 10) / 10; // Round to 1 decimal place
+  };
+
+  // Function to calculate confidence for a specific bundle
+  const calculateBundleConfidence = (bundleName) => {
+    const bundle = bundleItems.find(b => b.name === bundleName);
+    if (!bundle) return 0;
+    
+    let totalScore = 0;
+    let totalPrompts = 0;
+    
+    bundle.recipes.forEach(recipe => {
+      recipe.prompts.forEach(prompt => {
+        totalScore += prompt.score;
+        totalPrompts += 1;
+      });
+    });
+    
+    if (totalPrompts === 0) return 0;
+    const confidence = (totalScore / totalPrompts) * 100;
+    return Math.round(confidence * 10) / 10; // Round to 1 decimal place
+  };
+
+  // Function to calculate total prompts for a specific bundle
+  const calculateBundlePromptCount = (bundleName) => {
+    const bundle = bundleItems.find(b => b.name === bundleName);
+    if (!bundle) return 0;
+    
+    return bundle.recipes.reduce((total, recipe) => total + recipe.prompts.length, 0);
+  };
+
+  // Function to calculate total prompts across all bundles
+  const calculateTotalPromptCount = (data) => {
+    if (!data || data.length === 0) return 0;
+    
+    return data.reduce((total, bundle) => 
+      total + bundle.recipes.reduce((recipeTotal, recipe) => 
+        recipeTotal + recipe.prompts.length, 0
+      ), 0
+    );
+  };
+
+  // Function to process bundle data and add calculated percentages
+  const processBundleData = (data) => {
+    console.log('Processing bundle data:', data);
+    
+    const processed = data.map(bundle => {
+      const calculatedBundlePercentage = calculateBundlePercentage(bundle);
+      const processedRecipes = bundle.recipes.map(recipe => {
+        const calculatedRecipePercentage = calculateRecipePercentage(recipe);
+        console.log(`Recipe ${recipe.name}: calculated percentage = ${calculatedRecipePercentage}%`);
+        return {
+          ...recipe,
+          percentage: calculatedRecipePercentage
+        };
+      });
+      
+      console.log(`Bundle ${bundle.name}: calculated percentage = ${calculatedBundlePercentage}%`);
+      return {
+        ...bundle,
+        percentage: calculatedBundlePercentage,
+        recipes: processedRecipes
+      };
+    });
+    
+    console.log('Final processed data:', processed);
+    return processed;
+  };
+
   // Initialize filters with all values when data is loaded
   useEffect(() => {
     if (bundleItems.length > 0) {
@@ -735,10 +857,17 @@ const TestReport = () => {
       }
       const data = await response.json();
       console.log('API Response data:', data);
-      // Update to handle the API response format
-      setBundleItems(data);
+      console.log('Data structure check - first bundle:', data[0]);
+      console.log('Data structure check - first recipe:', data[0]?.recipes?.[0]);
+      
+      // Process the data to calculate percentages based on scores
+      const processedData = processBundleData(data);
+      console.log('Processed data with calculated percentages:', processedData);
+      
+      setBundleItems(processedData);
       setError(null);
     } catch (err) {
+      console.error('Error in fetchBundleData:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -753,6 +882,11 @@ const TestReport = () => {
   // Monitor bundleItems changes
   useEffect(() => {
     console.log('Bundle items updated:', bundleItems);
+    console.log('Bundle items length:', bundleItems.length);
+    if (bundleItems.length > 0) {
+      console.log('First bundle:', bundleItems[0]);
+      console.log('First bundle recipes:', bundleItems[0].recipes);
+    }
   }, [bundleItems]);
 
   // Update line height when content changes or window resizes
@@ -844,13 +978,13 @@ const TestReport = () => {
           <div className="divider"></div>
           <div className="metric-group">
             <span className="metric-label">Confidence</span>
-            <span className="metric-value">98.5%</span>
+            <span className="metric-value">{calculateOverallConfidence(bundleItems)}%</span>
           </div>
           <div className="divider"></div>
           <div className="metric-group">
             <span className="metric-label">Prompts</span>
             <div className="prompts-content">
-              <span className="prompt-count">216,906</span>
+              <span className="prompt-count">{calculateTotalPromptCount(bundleItems).toLocaleString()}</span>
               <span className="score-adjusted">1 score adjusted</span>
             </div>
           </div>
@@ -1008,6 +1142,8 @@ const TestReport = () => {
               scoreFilterRef={scoreFilterRef}
               fetchBundleData={fetchBundleData}
               showBundleFilter={true}
+              calculateTotalPromptCount={calculateTotalPromptCount}
+              bundleItems={bundleItems}
             />
         </section>
       </main>
@@ -1031,7 +1167,7 @@ const TestReport = () => {
                 <div className="popup-title-row">
                   <h1 className="popup-title">{selectedBundle}</h1>
                   <div className="success-badge">
-                    <span>{bundleItems.find(bundle => bundle.name === selectedBundle)?.score}%</span>
+                    <span>{bundleItems.find(bundle => bundle.name === selectedBundle)?.percentage}%</span>
                   </div>
                 </div>
                 <p className="popup-description">Description</p>
@@ -1062,7 +1198,7 @@ const TestReport = () => {
                         <div key={index} className="bundle-item">
                           <span className="bundle-name">{recipe.name}</span>
                           <div className="success-badge">
-                            <span>{recipe.score}%</span>
+                            <span>{recipe.percentage}%</span>
                           </div>
                         </div>
                       ))
@@ -1072,13 +1208,13 @@ const TestReport = () => {
               <div className="divider"></div>
               <div className="metric-group">
                 <span className="metric-label">Confidence</span>
-                <span className="metric-value">98.5%</span>
+                <span className="metric-value">{calculateBundleConfidence(selectedBundle)}%</span>
               </div>
               <div className="divider"></div>
               <div className="metric-group">
                 <span className="metric-label">Prompts</span>
                 <div className="prompts-content">
-                  <span className="prompt-count">216,906</span>
+                  <span className="prompt-count">{calculateBundlePromptCount(selectedBundle)}</span>
                   <span className="score-adjusted">1 score adjusted</span>
                 </div>
               </div>
@@ -1113,6 +1249,8 @@ const TestReport = () => {
               fetchBundleData={fetchBundleData}
               showBundleFilter={false}
               isPopup={true}
+              calculateTotalPromptCount={calculateTotalPromptCount}
+              bundleItems={bundleItems}
             />
           </div>
         </div>
