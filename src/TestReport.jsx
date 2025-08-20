@@ -1,5 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Line, ReferenceLine } from 'recharts';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const defaultColumnConfig = {
   main: {
@@ -861,6 +880,8 @@ const TestReport = () => {
       console.log('API Response data:', data);
       console.log('Data structure check - first bundle:', data[0]);
       console.log('Data structure check - first recipe:', data[0]?.recipes?.[0]);
+      console.log('First recipe percentage type:', typeof data[0]?.recipes?.[0]?.percentage);
+      console.log('First recipe percentage value:', data[0]?.recipes?.[0]?.percentage);
       
       // Process the data to calculate percentages based on scores
       const processedData = processBundleData(data);
@@ -888,6 +909,15 @@ const TestReport = () => {
     if (bundleItems.length > 0) {
       console.log('First bundle:', bundleItems[0]);
       console.log('First bundle recipes:', bundleItems[0].recipes);
+      // Debug chart data
+      bundleItems.forEach(bundle => {
+        console.log(`Chart data for bundle: ${bundle.name}`, bundle.recipes.map(r => ({ 
+          name: r.name, 
+          percentage: r.percentage, 
+          type: typeof r.percentage 
+        })));
+        console.log(`Chart data structure for bundle: ${bundle.name}`, bundle.recipes);
+      });
     }
   }, [bundleItems]);
 
@@ -1041,43 +1071,101 @@ const TestReport = () => {
                       </svg>
                     </div>
                     <div className="chart-content">
-                      {console.log('Chart data for bundle:', bundle.name, bundle.recipes)}
-                      <ResponsiveContainer width="100%" height={200}>
-                        <ComposedChart
-                          data={bundle.recipes}
-                          layout="horizontal"
-                          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis 
-                            type="number" 
-                            domain={[0, 100]}
-                            tickFormatter={(value) => `${value}%`}
-                          />
-                          <YAxis 
-                            type="category" 
-                            dataKey="name"
-                            width={80}
-                          />
-                          <Tooltip 
-                            formatter={(value, name) => [`${value}%`, name]}
-                            labelFormatter={(label) => `Recipe: ${label}`}
-                          />
-                          <Bar 
-                            dataKey="percentage" 
-                            fill="#3B82F6" 
-                            radius={[0, 4, 4, 0]}
-                            barSize={30}
-                            minPointSize={5}
-                          />
-                          <ReferenceLine 
-                            x={bundle.percentage} 
-                            stroke="#EF4444" 
-                            strokeDasharray="3 3"
-                            label={{ value: `Bundle: ${bundle.percentage}%`, position: 'top' }}
-                          />
-                        </ComposedChart>
-                      </ResponsiveContainer>
+                      {/* Debug: Show actual percentage values */}
+                      <div style={{ fontSize: '10px', color: '#666', marginBottom: '4px', fontFamily: 'monospace', maxHeight: '60px', overflow: 'auto' }}>
+                        Debug - Recipe percentages: {bundle.recipes.map(r => `${r.name}: ${r.percentage}`).join(', ')}
+                      </div>
+                      <div style={{ height: '200px', width: '100%' }}>
+                        {(() => {
+                          const chartData = {
+                            labels: bundle.recipes.map(recipe => recipe.name),
+                            datasets: [
+                              {
+                                label: 'Recipe Performance',
+                                data: bundle.recipes.map(recipe => recipe.percentage),
+                                backgroundColor: 'rgba(96, 165, 250, 1)',
+                                borderColor: 'rgba(96, 165, 250, 1)',
+                                borderWidth: 1,
+                                borderRadius: 4,
+                                borderSkipped: false,
+                              },
+                            ],
+                          };
+
+                          const options = {
+                            indexAxis: 'y', // Horizontal bar chart
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                              legend: {
+                                display: false, // Hide legend for cleaner look
+                              },
+                              tooltip: {
+                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                titleColor: '#333',
+                                bodyColor: '#666',
+                                borderColor: '#e0e0e0',
+                                borderWidth: 1,
+                                cornerRadius: 8,
+                                callbacks: {
+                                  label: function(context) {
+                                    return `Recipe: ${context.dataset.label} - ${context.parsed.x}%`;
+                                  }
+                                }
+                              }
+                            },
+                            scales: {
+                              x: {
+                                // Horizontal axis (percentage values)
+                                beginAtZero: true,
+                                max: 100,
+                                grid: {
+                                  color: 'rgba(0, 0, 0, 0.1)',
+                                  drawBorder: false,
+                                },
+                                ticks: {
+                                  color: '#666',
+                                  font: {
+                                    size: 10
+                                  },
+                                  callback: function(value) {
+                                    return value + '%';
+                                  }
+                                }
+                              },
+                              y: {
+                                // Vertical axis (recipe names)
+                                grid: {
+                                  color: 'rgba(0, 0, 0, 0.1)',
+                                  drawBorder: false,
+                                },
+                                ticks: {
+                                  color: '#333',
+                                  font: {
+                                    size: 10,
+                                    weight: '500'
+                                  }
+                                }
+                              }
+                            },
+                            elements: {
+                              bar: {
+                                barThickness: 12, // Fixed bar thickness - made thinner
+                                maxBarThickness: 12, // Maximum bar thickness
+                              }
+                            },
+                            datasets: {
+                              bar: {
+                                categoryPercentage: 0.3, // Controls space between categories
+                                barPercentage: 0.6, // Controls bar width within category space
+                              }
+                            }
+
+                          };
+
+                          return <Bar data={chartData} options={options} />;
+                        })()}
+                      </div>
                     </div>
                     <div className="chart-footer">
                       <div className="scale-line"></div>

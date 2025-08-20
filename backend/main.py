@@ -43,13 +43,13 @@ async def get_bundles():
             for bundle in data["bundles"]:
                 transformed_bundle = {
                     "name": bundle["name"],
-                    "percentage": bundle["percentage"],
+                    "percentage": float(bundle["percentage"]),
                     "recipes": [
                         {
                             "name": recipe["recipe_name"],
-                            "percentage": recipe["percentage"],
-                            "ci_minimum_band": recipe["ci_minimum_band"],
-                            "ci_maximum_band": recipe["ci_maximum_band"],
+                            "percentage": float(recipe["percentage"]),
+                            "ci_minimum_band": float(recipe["ci_minimum_band"]),
+                            "ci_maximum_band": float(recipe["ci_maximum_band"]),
                             "prompts": recipe["prompts"]
                         }
                         for recipe in bundle["recipes"]
