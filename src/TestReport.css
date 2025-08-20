@@ -790,6 +790,44 @@ body {
   display: flex;
   flex-direction: column;
   width: 100%;
+  min-height: 200px;
+  position: relative;
+}
+
+.loading-state,
+.error-state,
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  width: 100%;
+  color: var(--slate-500);
+  font-size: 14px;
+  gap: 12px;
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--slate-200);
+  border-top-color: var(--blue-400);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-state {
+  color: var(--red-700);
+}
+
+.empty-state {
+  color: var(--slate-400);
 }
 
 /* Common grid layout for both header and rows */
