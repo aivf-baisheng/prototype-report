@@ -49,11 +49,19 @@ const DataTable = ({
       accessorKey: 'bundle',
       header: 'Bundle',
       size: 1.5,
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue || filterValue.length === 0) return true;
+        return filterValue.includes(row.getValue(columnId));
+      },
     },
     {
       accessorKey: 'recipe',
       header: 'Recipe',
       size: 0.8,
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue || filterValue.length === 0) return true;
+        return filterValue.includes(row.getValue(columnId));
+      },
     },
     {
       accessorKey: 'prompt_message',
@@ -74,6 +82,10 @@ const DataTable = ({
       accessorKey: 'score',
       header: 'Score',
       size: 0.6,
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        return row.getValue(columnId) === Number(filterValue);
+      },
       cell: info => (
         <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
           <div className={`score-badge ${info.getValue() === 1 ? 'success' : 'error'}`}>
@@ -115,6 +127,58 @@ const DataTable = ({
     return flattened;
   }, [data]);
 
+  // Filter states
+  const [columnFilters, setColumnFilters] = useState([]);
+  const [globalFilter, setGlobalFilter] = useState('');
+  const [selectedBundles, setSelectedBundles] = useState([]);
+  const [selectedRecipes, setSelectedRecipes] = useState([]);
+  const [selectedScores, setSelectedScores] = useState(['0', '1']); // Initialize with both scores
+  const [isFilterOpen, setIsFilterOpen] = useState(null); // Can be 'bundle', 'recipe', 'verdict', or null
+
+  // Close filter dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const filterElements = document.querySelectorAll('.filter-group');
+      let clickedInside = false;
+      
+      filterElements.forEach(element => {
+        if (element.contains(event.target)) {
+          clickedInside = true;
+        }
+      });
+
+      if (!clickedInside) {
+        setIsFilterOpen(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Get unique values for dropdowns
+  const uniqueBundles = useMemo(() => {
+    const bundles = new Set(flattenedData.map(item => item.bundle));
+    return Array.from(bundles).sort();
+  }, [flattenedData]);
+
+  const uniqueRecipes = useMemo(() => {
+    const recipes = new Set(flattenedData.map(item => item.recipe));
+    return Array.from(recipes).sort();
+  }, [flattenedData]);
+
+  // Initialize selected values when data changes
+  useEffect(() => {
+    if (uniqueBundles.length > 0 && selectedBundles.length === 0) {
+      setSelectedBundles(uniqueBundles);
+    }
+    if (uniqueRecipes.length > 0 && selectedRecipes.length === 0) {
+      setSelectedRecipes(uniqueRecipes);
+    }
+  }, [uniqueBundles, uniqueRecipes]);
+
   // Configure table
   const table = useReactTable({
     data: flattenedData,
@@ -124,8 +188,19 @@ const DataTable = ({
     getFilteredRowModel: getFilteredRowModel(),
     state: {
       sorting,
+      columnFilters,
+      globalFilter,
     },
     onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, columnId, filterValue) => {
+      const value = row.getValue(columnId);
+      if (value == null) return false;
+      return String(value)
+        .toLowerCase()
+        .includes(String(filterValue).toLowerCase());
+    },
   });
 
   // Data processing is now handled by TanStack Table
@@ -133,6 +208,387 @@ const DataTable = ({
     <div className="data-table-section">
       <div className="prompts-count">
         {calculateTotalPromptCount(bundleItems).toLocaleString()} prompts
+      </div>
+
+      {/* Global Search */}
+      <div style={{ 
+        padding: '16px 0',
+        borderBottom: '1px solid var(--slate-200)'
+      }}>
+        <div style={{
+          position: 'relative',
+          maxWidth: '400px'
+        }}>
+          <input
+            type="text"
+            value={globalFilter ?? ''}
+            onChange={e => setGlobalFilter(e.target.value)}
+            placeholder="Search in all columns..."
+            style={{
+              width: '100%',
+              padding: '8px 12px 8px 36px',
+              border: '1px solid var(--slate-200)',
+              borderRadius: '6px',
+              fontSize: '14px',
+              backgroundColor: 'white'
+            }}
+          />
+          <svg 
+            width="16" 
+            height="16" 
+            viewBox="0 0 16 16" 
+            fill="none"
+            style={{
+              position: 'absolute',
+              left: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--slate-400)'
+            }}
+          >
+            <path d="M14 14L10 10M11.3333 6.66667C11.3333 9.244 9.244 11.3333 6.66667 11.3333C4.08934 11.3333 2 9.244 2 6.66667C2 4.08934 4.08934 2 6.66667 2C9.244 2 11.3333 4.08934 11.3333 6.66667Z" 
+              stroke="currentColor" 
+              strokeWidth="1.5" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+      </div>
+
+      {/* Filter Section */}
+      <div className="filter-section" style={{ 
+        display: 'flex', 
+        gap: '16px', 
+        padding: '16px 0',
+        alignItems: 'flex-start'
+      }}>
+        {/* Bundle Filter */}
+        <div className="filter-group" style={{ position: 'relative', minWidth: '200px' }}>
+          <div 
+            onClick={() => setIsFilterOpen(isFilterOpen === 'bundle' ? null : 'bundle')}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid var(--slate-200)',
+              borderRadius: '6px',
+              fontSize: '14px',
+              backgroundColor: 'white',
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px' 
+            }}>
+              <div style={{
+                width: '16px',
+                height: '16px',
+                border: '1px solid var(--slate-300)',
+                borderRadius: '3px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'white'
+              }}>
+                {selectedBundles.length !== uniqueBundles.length && (
+                  <span style={{ color: '#000000', fontSize: '14px', fontWeight: 'bold' }}>✓</span>
+                )}
+              </div>
+              <span>Bundles ({selectedBundles.length})</span>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{
+              transform: isFilterOpen === 'bundle' ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.2s'
+            }}>
+              <path d="M4 6L8 10L12 6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          {isFilterOpen === 'bundle' && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              backgroundColor: 'white',
+              border: '1px solid var(--slate-200)',
+              borderRadius: '6px',
+              marginTop: '4px',
+              maxHeight: '300px',
+              overflowY: 'auto',
+              zIndex: 10,
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            }}>
+              {uniqueBundles.map(bundle => (
+                <div
+                  key={bundle}
+                  onClick={() => {
+                    const newSelected = selectedBundles.includes(bundle)
+                      ? selectedBundles.filter(b => b !== bundle)
+                      : [...selectedBundles, bundle];
+                    setSelectedBundles(newSelected);
+                    table.getColumn('bundle')?.setFilterValue(
+                      newSelected.length === uniqueBundles.length ? '' : newSelected
+                    );
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '14px',
+                    color: 'var(--slate-700)',
+                    ':hover': {
+                      backgroundColor: 'var(--slate-50)'
+                    }
+                  }}
+                >
+                  <div style={{
+                    width: '16px',
+                    height: '16px',
+                    border: '1px solid var(--slate-300)',
+                    borderRadius: '3px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: selectedBundles.includes(bundle) ? 'var(--blue-500)' : 'white'
+                  }}>
+                    {selectedBundles.includes(bundle) && (
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M10 3L4.5 8.5L2 6" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                  {bundle}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recipe Filter */}
+        <div className="filter-group" style={{ position: 'relative', minWidth: '200px' }}>
+          <div 
+            onClick={() => setIsFilterOpen(isFilterOpen === 'recipe' ? null : 'recipe')}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid var(--slate-200)',
+              borderRadius: '6px',
+              fontSize: '14px',
+              backgroundColor: 'white',
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px' 
+            }}>
+              <div style={{
+                width: '16px',
+                height: '16px',
+                border: '1px solid var(--slate-300)',
+                borderRadius: '3px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'white'
+              }}>
+                {selectedRecipes.length !== uniqueRecipes.length && (
+                  <span style={{ color: '#000000', fontSize: '14px', fontWeight: 'bold' }}>✓</span>
+                )}
+              </div>
+              <span>Recipe ({selectedRecipes.length})</span>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{
+              transform: isFilterOpen === 'recipe' ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.2s'
+            }}>
+              <path d="M4 6L8 10L12 6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          {isFilterOpen === 'recipe' && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              backgroundColor: 'white',
+              border: '1px solid var(--slate-200)',
+              borderRadius: '6px',
+              marginTop: '4px',
+              maxHeight: '300px',
+              overflowY: 'auto',
+              zIndex: 10,
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            }}>
+              {uniqueRecipes.map(recipe => (
+                <div
+                  key={recipe}
+                  onClick={() => {
+                    const newSelected = selectedRecipes.includes(recipe)
+                      ? selectedRecipes.filter(r => r !== recipe)
+                      : [...selectedRecipes, recipe];
+                    setSelectedRecipes(newSelected);
+                    table.getColumn('recipe')?.setFilterValue(
+                      newSelected.length === uniqueRecipes.length ? '' : newSelected
+                    );
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '14px',
+                    color: 'var(--slate-700)',
+                    ':hover': {
+                      backgroundColor: 'var(--slate-50)'
+                    }
+                  }}
+                >
+                  <div style={{
+                    width: '16px',
+                    height: '16px',
+                    border: '1px solid var(--slate-300)',
+                    borderRadius: '3px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: selectedRecipes.includes(recipe) ? 'var(--blue-500)' : 'white'
+                  }}>
+                    {selectedRecipes.includes(recipe) && (
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M10 3L4.5 8.5L2 6" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                  {recipe}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Verdict Filter */}
+        <div className="filter-group" style={{ position: 'relative', minWidth: '150px' }}>
+          <div 
+            onClick={() => setIsFilterOpen(isFilterOpen === 'verdict' ? null : 'verdict')}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid var(--slate-200)',
+              borderRadius: '6px',
+              fontSize: '14px',
+              backgroundColor: 'white',
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px' 
+            }}>
+              <div style={{
+                width: '16px',
+                height: '16px',
+                border: '1px solid var(--slate-300)',
+                borderRadius: '3px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'white'
+              }}>
+                {selectedScores.length !== 2 && (
+                  <span style={{ color: '#000000', fontSize: '14px', fontWeight: 'bold' }}>✓</span>
+                )}
+              </div>
+              <span>Verdict ({selectedScores.length})</span>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{
+              transform: isFilterOpen === 'verdict' ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.2s'
+            }}>
+              <path d="M4 6L8 10L12 6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          {isFilterOpen === 'verdict' && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              backgroundColor: 'white',
+              border: '1px solid var(--slate-200)',
+              borderRadius: '6px',
+              marginTop: '4px',
+              maxHeight: '300px',
+              overflowY: 'auto',
+              zIndex: 10,
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            }}>
+              {[
+                { value: '1', label: 'True' },
+                { value: '0', label: 'False' }
+              ].map(option => (
+                <div
+                  key={option.value}
+                  onClick={() => {
+                    const newSelected = selectedScores.includes(option.value)
+                      ? selectedScores.filter(s => s !== option.value)
+                      : [...selectedScores, option.value];
+                    setSelectedScores(newSelected);
+                    table.getColumn('score')?.setFilterValue(
+                      newSelected.length === 2 ? '' : newSelected
+                    );
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '14px',
+                    color: 'var(--slate-700)',
+                    ':hover': {
+                      backgroundColor: 'var(--slate-50)'
+                    }
+                  }}
+                >
+                  <div style={{
+                    width: '16px',
+                    height: '16px',
+                    border: '1px solid var(--slate-300)',
+                    borderRadius: '3px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: selectedScores.includes(option.value) ? 'var(--blue-500)' : 'white'
+                  }}>
+                    {selectedScores.includes(option.value) && (
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M10 3L4.5 8.5L2 6" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                  {option.label}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Data Table */}
