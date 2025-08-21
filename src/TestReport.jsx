@@ -846,7 +846,7 @@ const DataTable = ({
                     gap: '24px',
                     padding: (selectedView || 'table') === 'list' ? '16px 24px' : '8px 24px',
                     borderBottom: '1px solid var(--slate-200)',
-                    background: index === 0 ? 'var(--green-50)' : 'var(--white)',
+                    background: 'var(--white)',
                     alignItems: (selectedView || 'table') === 'list' ? 'flex-start' : 'center'
                   }}
                 >

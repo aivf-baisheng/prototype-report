@@ -24,7 +24,7 @@ app.add_middleware(
 )
 
 # Path to the JSON files
-BUNDLES_TEST_FILE = Path(__file__).parent / "data" / "bundlestest.json"
+BUNDLES_TEST_FILE = Path(__file__).parent / "data" / "ExpectedSample.json"
 
 @app.get("/")
 async def read_root():
