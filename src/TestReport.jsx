@@ -39,9 +39,13 @@ const DataTable = ({
   error,
   calculateTotalPromptCount,
   bundleItems,
-  onVote
+  onVote,
+  onSaveNote
 }) => {
   const [sorting, setSorting] = useState([]);
+  const [editingPrompt, setEditingPrompt] = useState(null);
+  const [editNote, setEditNote] = useState('');
+  const editDropdownRef = useRef(null);
 
   // Define columns
   const columns = useMemo(() => [
@@ -98,6 +102,50 @@ const DataTable = ({
       accessorKey: 'notes',
       header: 'Notes',
       size: 0.8,
+      cell: info => (
+        <div className="notes-dropdown">
+          <div
+            className="notes-dropdown-trigger"
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent event bubbling
+              console.log('Notes cell clicked:', info.row.original.id);
+              console.log('Current editingPrompt:', editingPrompt);
+              
+              // Get the position of the clicked element
+              const rect = e.currentTarget.getBoundingClientRect();
+              console.log('Clicked element position:', rect);
+              
+              setEditingPrompt(info.row.original.id);
+              setEditNote(info.getValue() || '');
+              
+              // Position the popup near the clicked element
+              setTimeout(() => {
+                if (editDropdownRef.current) {
+                  const popup = editDropdownRef.current;
+                  // Position below the clicked element
+                  popup.style.position = 'absolute';
+                  popup.style.top = `${rect.bottom + 4}px`;
+                  popup.style.left = `${rect.left}px`;
+                  popup.style.transform = 'none';
+                  console.log('Positioned popup at:', rect.bottom + 4, rect.left);
+                }
+              }, 0);
+            }}
+          >
+            <span style={{ 
+              overflow: 'hidden', 
+              textOverflow: 'ellipsis', 
+              whiteSpace: 'nowrap',
+              flex: 1
+            }}>
+              {info.getValue() || 'Click to edit'}
+            </span>
+
+          </div>
+          
+
+        </div>
+      ),
     },
     {
       accessorKey: 'verdict',
@@ -112,7 +160,7 @@ const DataTable = ({
         />
       ),
     },
-  ], [onVote]);
+  ], [onVote, onSaveNote, editingPrompt, editNote]);
 
   // Prepare flattened data
   const flattenedData = useMemo(() => {
@@ -171,6 +219,42 @@ const DataTable = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Handle escape key to close popup
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === 'Escape' && editingPrompt) {
+        setEditingPrompt(null);
+        setEditNote('');
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [editingPrompt]);
+
+  // Close edit popup when clicking outside (handled by overlay click)
+  // The overlay click handler will close the popup, so we don't need this useEffect anymore
+
+  // Position popup when it opens
+  useEffect(() => {
+    console.log('Positioning useEffect triggered, editingPrompt:', editingPrompt);
+    if (editingPrompt && editDropdownRef.current) {
+      console.log('Found editDropdownRef, looking for trigger element');
+      // Find the trigger element that was clicked
+      const triggerElement = document.querySelector(`[data-row-id="${editingPrompt}"] .notes-dropdown-trigger`);
+      console.log('Trigger element found:', triggerElement);
+      if (triggerElement) {
+        const rect = triggerElement.getBoundingClientRect();
+        console.log('Trigger element rect:', rect);
+        editDropdownRef.current.style.top = `${rect.bottom + window.scrollY + 4}px`;
+        editDropdownRef.current.style.left = `${rect.left + window.scrollX}px`;
+        console.log('Positioned popup at:', rect.bottom + window.scrollY + 4, rect.left + window.scrollX);
+      }
+    }
+  }, [editingPrompt]);
 
   // Get unique values for dropdowns
   const uniqueBundles = useMemo(() => {
@@ -669,6 +753,7 @@ const DataTable = ({
                 <div
                   key={row.id}
                   className={`table-row ${index === 0 ? 'highlighted-row' : ''}`}
+                  data-row-id={row.original.id}
                   style={{
                     display: 'grid',
                     gridTemplateColumns: table.getAllColumns().map(col => `${col.columnDef.size}fr`).join(' '),
@@ -704,6 +789,60 @@ const DataTable = ({
           </div>
         )}
       </div>
+      
+      {/* Notes Edit Popup - rendered at document level */}
+      {editingPrompt && (
+        <div className="notes-popup-overlay" onClick={() => setEditingPrompt(null)}>
+          <div
+            ref={editDropdownRef}
+            className="notes-popup-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="notes-popup-header">
+              <h4>Edit Notes</h4>
+              <button
+                className="notes-popup-close"
+                onClick={() => setEditingPrompt(null)}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M4 4L12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            </div>
+            <textarea
+              className="notes-textarea"
+              value={editNote}
+              onChange={(e) => setEditNote(e.target.value)}
+              placeholder="Enter notes..."
+              autoFocus
+            />
+            <div className="notes-actions">
+              <button
+                className="notes-button notes-button-cancel"
+                onClick={() => {
+                  setEditingPrompt(null);
+                  setEditNote('');
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (onSaveNote) {
+                    onSaveNote(editingPrompt, editNote);
+                  }
+                  setEditingPrompt(null);
+                  setEditNote('');
+                }}
+                className="notes-button notes-button-save"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -864,9 +1003,6 @@ const TestReport = () => {
       setSelectedRecipes(allRecipes);
     }
   }, [bundleItems]);
-  const [editingPrompt, setEditingPrompt] = useState(null);
-  const [editNote, setEditNote] = useState('');
-  const editDropdownRef = useRef(null);
   const bundleFilterRef = useRef(null);
   const recipeFilterRef = useRef(null);
   const scoreFilterRef = useRef(null);
@@ -876,12 +1012,10 @@ const TestReport = () => {
       const clickedOutsideAll = 
         (!bundleFilterRef.current || !bundleFilterRef.current.contains(event.target)) &&
         (!recipeFilterRef.current || !recipeFilterRef.current.contains(event.target)) &&
-        (!scoreFilterRef.current || !scoreFilterRef.current.contains(event.target)) &&
-        (!editDropdownRef.current || !editDropdownRef.current.contains(event.target));
+        (!scoreFilterRef.current || !scoreFilterRef.current.contains(event.target));
 
       if (clickedOutsideAll) {
         setIsFilterOpen(null);
-        setEditingPrompt(null);
       }
     };
 
@@ -976,6 +1110,27 @@ const TestReport = () => {
     } catch (error) {
       console.error('Failed to save vote:', error);
       throw error; // Re-throw to let VotingButtons handle the error
+    }
+  };
+
+  const handleSaveNote = async (itemId, note) => {
+    try {
+      // Here you would typically make an API call to save the note
+      console.log(`Saving note for prompt ${itemId}:`, note);
+      
+      // For now, we'll just log the note
+      // In a real application, you would:
+      // 1. Send the note to your backend
+      // 2. Update the database
+      // 3. Optionally refresh the data or update local state
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      console.log(`Note saved successfully for prompt ${itemId}`);
+    } catch (error) {
+      console.error('Failed to save note:', error);
+      // You might want to show an error message to the user here
     }
   };
 
@@ -1257,9 +1412,7 @@ const TestReport = () => {
               setSelectedScores={setSelectedScores}
               isFilterOpen={isFilterOpen}
               setIsFilterOpen={setIsFilterOpen}
-              editingPrompt={editingPrompt}
-              setEditingPrompt={setEditingPrompt}
-              editDropdownRef={editDropdownRef}
+
               bundleFilterRef={bundleFilterRef}
               recipeFilterRef={recipeFilterRef}
               scoreFilterRef={scoreFilterRef}
@@ -1268,6 +1421,7 @@ const TestReport = () => {
               calculateTotalPromptCount={calculateTotalPromptCount}
               bundleItems={bundleItems}
               onVote={handleVote}
+              onSaveNote={handleSaveNote}
             />
         </section>
       </main>

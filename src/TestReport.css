@@ -2,6 +2,7 @@
 :root {
   --slate-700: #334155;
   --slate-500: #64748B;
+  --slate-600: #475569;
   --slate-200: #E2E8F0;
   --gray-900: #111827;
   --green-200: #BBF7D0;
@@ -14,8 +15,11 @@
   --white: #FFF;
   --text-muted-foreground: #60646C;
   --blue-400: #60A5FA;
+  --blue-500: #3B82F6;
+  --blue-600: #2563EB;
   --slate-400: #94A3B8;
   --slate-100: #F1F5F9;
+  --slate-50: #F8FAFC;
   --green-50: #F0FDF4;
   --red-300: #FCA5A5;
   --red-100: #FEE2E2;
@@ -1378,4 +1382,145 @@ body {
 
 .recharts-tooltip-item {
   color: var(--slate-500);
+}
+
+/* Notes dropdown styling */
+.notes-dropdown {
+  position: relative;
+}
+
+.notes-dropdown-trigger {
+  padding: 4px 8px;
+  border: 1px solid var(--slate-200);
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: var(--white);
+  font-size: 12px;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  transition: border-color 0.2s ease;
+}
+
+.notes-dropdown-trigger:hover {
+  border-color: var(--slate-400);
+  background-color: var(--slate-50);
+}
+
+.notes-dropdown-trigger span {
+  color: var(--slate-600);
+  font-style: italic;
+}
+
+.notes-dropdown-trigger span:not(:empty) {
+  font-style: normal;
+  color: var(--slate-700);
+}
+
+.notes-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: transparent;
+  z-index: 99999;
+}
+
+.notes-popup-content {
+  background-color: var(--white);
+  border: 1px solid var(--slate-200);
+  border-radius: 8px;
+  padding: 20px;
+  min-width: 300px;
+  max-width: 500px;
+  max-height: 60vh;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: absolute;
+}
+
+.notes-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border: 1px solid var(--slate-200);
+  border-radius: 6px;
+  font-size: 14px;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+  line-height: 1.5;
+}
+
+.notes-textarea:focus {
+  outline: none;
+  border-color: var(--blue-500);
+}
+
+.notes-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.notes-popup-header h4 {
+  margin: 0;
+  color: var(--slate-700);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.notes-popup-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--slate-500);
+  transition: all 0.2s ease;
+}
+
+.notes-popup-close:hover {
+  background-color: var(--slate-100);
+  color: var(--slate-700);
+}
+
+.notes-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+
+.notes-button {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.notes-button-cancel {
+  border: 1px solid var(--slate-200);
+  background-color: var(--white);
+  color: var(--slate-700);
+}
+
+.notes-button-cancel:hover {
+  background-color: var(--slate-50);
+}
+
+.notes-button-save {
+  border: 1px solid var(--blue-500);
+  background-color: var(--blue-500);
+  color: var(--white);
+}
+
+.notes-button-save:hover {
+  background-color: var(--blue-600);
 }
