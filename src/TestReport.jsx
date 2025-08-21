@@ -61,7 +61,7 @@ const DataTable = ({
     },
     {
       accessorKey: 'recipe',
-      header: 'Recipe',
+      header: 'Test Name',
       size: 0.8,
       filterFn: (row, columnId, filterValue) => {
         if (!filterValue || filterValue.length === 0) return true;
@@ -70,22 +70,22 @@ const DataTable = ({
     },
     {
       accessorKey: 'prompt_message',
-      header: 'Prompt',
+      header: 'Prompt to LLM App',
       size: 2.2,
     },
     {
       accessorKey: 'target',
-      header: 'Target',
+      header: 'Ground Truth',
       size: 1.8,
     },
     {
       accessorKey: 'response',
-      header: 'Response',
+      header: 'Response from LLM App',
       size: 1.2,
     },
     {
       accessorKey: 'score',
-      header: 'Score',
+      header: 'Evaluation Outcome',
       size: 0.6,
       filterFn: (row, columnId, filterValue) => {
         if (!filterValue) return true;
