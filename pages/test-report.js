@@ -1,4 +1,4 @@
-import TestReport from '../src/TestReport'
+import TestReport from '@/TestReport'
 
 export default function TestReportPage() {
   return <TestReport />

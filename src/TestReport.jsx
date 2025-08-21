@@ -17,7 +17,7 @@ import {
 } from '@tanstack/react-table';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { Bar } from 'react-chartjs-2';
-import VotingButtonsShadcn from './components/VotingButtonsShadcn';
+import VotingButtonsShadcn from '@/components/VotingButtonsShadcn';
 
 // Register Chart.js components
 ChartJS.register(

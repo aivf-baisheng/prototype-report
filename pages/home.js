@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import TestReport from '../src/TestReport'
-import ConfirmBenchmarkTest from '../src/ConfirmBenchmarkTest'
-import TestChart from '../src/TestChart'
+import TestReport from '@/TestReport'
+import ConfirmBenchmarkTest from '@/ConfirmBenchmarkTest'
+import TestChart from '@/TestChart'
 import Head from 'next/head'
 
 export default function Home() {

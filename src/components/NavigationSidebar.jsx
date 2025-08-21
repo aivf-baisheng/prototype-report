@@ -1,5 +1,5 @@
 import React from 'react';
-import { navigationIcons } from './navigationIcons';
+import { navigationIcons } from '@/components/navigationIcons';
 
 const NavigationSidebar = ({ onViewChange, currentView }) => {
   const handleNavigation = (viewName) => {

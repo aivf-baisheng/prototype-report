@@ -1,4 +1,4 @@
-import VotingButtons from '../src/components/VotingButtons'
+import VotingButtons from '@/components/VotingButtons'
 import Head from 'next/head'
 
 export default function TestVotingPage() {

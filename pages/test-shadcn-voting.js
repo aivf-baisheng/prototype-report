@@ -1,4 +1,4 @@
-import VotingButtonsShadcn from '../src/components/VotingButtonsShadcn';
+import VotingButtonsShadcn from '@/components/VotingButtonsShadcn';
 
 export default function TestShadcnVoting() {
   const handleVote = async (itemId, voteType) => {

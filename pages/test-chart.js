@@ -1,4 +1,4 @@
-import TestChart from '../src/TestChart'
+import TestChart from '@/TestChart'
 import Head from 'next/head'
 
 export default function TestChartPage() {
