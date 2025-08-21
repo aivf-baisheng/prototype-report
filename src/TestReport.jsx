@@ -37,6 +37,8 @@ const DataTable = ({
   data, 
   loading, 
   error,
+  selectedView = 'table',
+  setSelectedView,
   calculateTotalPromptCount,
   bundleItems,
   onVote,
@@ -329,6 +331,66 @@ const DataTable = ({
     <div className="data-table-section">
       <div className="prompts-count">
         {calculateTotalPromptCount(bundleItems).toLocaleString()} prompts
+      </div>
+
+      {/* View Control */}
+      <div className="view-controls" style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        padding: '16px 0',
+        borderBottom: '1px solid var(--slate-200)'
+      }}>
+        <div className="view-toggle" style={{ display: 'flex', alignItems: 'center' }}>
+          <button
+            className={`toggle-button ${(selectedView || 'table') === 'table' ? 'active' : ''}`}
+            onClick={() => setSelectedView && setSelectedView('table')}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid var(--slate-200)',
+              background: selectedView === 'table' ? 'var(--slate-100)' : 'var(--white)',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              lineHeight: '14px',
+              color: selectedView === 'table' ? 'var(--slate-700)' : 'var(--slate-500)',
+              borderRight: 'none',
+              borderRadius: '6px 0 0 6px',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ marginRight: '6px' }}>
+              <path d="M2 3C2 2.44772 2.44772 2 3 2H13C13.5523 2 14 2.44772 14 3V13C14 13.5523 13.5523 14 13 14H3C2.44772 14 2 13.5523 2 13V3Z" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M2 6H14" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M6 6V14" stroke="currentColor" strokeWidth="1.5"/>
+            </svg>
+            Compact View
+          </button>
+                      <button
+              className={`toggle-button ${(selectedView || 'table') === 'list' ? 'active' : ''}`}
+              onClick={() => setSelectedView && setSelectedView('list')}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid var(--slate-200)',
+              background: selectedView === 'list' ? 'var(--slate-100)' : 'var(--white)',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              lineHeight: '14px',
+              color: selectedView === 'list' ? 'var(--slate-700)' : 'var(--slate-500)',
+              borderLeft: 'none',
+              borderRadius: '0 6px 6px 0',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ marginRight: '6px' }}>
+              <path d="M2 3C2 2.44772 2.44772 2 3 2H13C13.5523 2 14 2.44772 14 3V13C14 13.5523 13.5523 14 13 14H3C2.44772 14 2 13.5523 2 13V3Z" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M2 6H14" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M2 10H14" stroke="currentColor" strokeWidth="1.5"/>
+            </svg>
+            Expanded View
+          </button>
+        </div>
       </div>
 
       {/* Global Search */}
@@ -724,6 +786,7 @@ const DataTable = ({
         ) : flattenedData.length === 0 ? (
           <div className="empty-state">No data available</div>
         ) : (
+          // Both Table and List View use the same table structure, but List View expands rows
           <div className="table-container" style={{ overflowX: 'auto', width: '100%' }}>
             <div className="table-header" style={{ display: 'grid', gridTemplateColumns: table.getAllColumns().map(col => `${col.columnDef.size}fr`).join(' '), gap: '24px', padding: '8px 24px', background: 'var(--slate-100)', borderBottom: '1px solid var(--slate-200)' }}>
               {table.getHeaderGroups().map(headerGroup => (
@@ -781,10 +844,10 @@ const DataTable = ({
                     display: 'grid',
                     gridTemplateColumns: table.getAllColumns().map(col => `${col.columnDef.size}fr`).join(' '),
                     gap: '24px',
-                    padding: '8px 24px',
+                    padding: (selectedView || 'table') === 'list' ? '16px 24px' : '8px 24px',
                     borderBottom: '1px solid var(--slate-200)',
                     background: index === 0 ? 'var(--green-50)' : 'var(--white)',
-                    alignItems: 'center'
+                    alignItems: (selectedView || 'table') === 'list' ? 'flex-start' : 'center'
                   }}
                 >
                   {row.getVisibleCells().map(cell => (
@@ -794,10 +857,12 @@ const DataTable = ({
                       style={{
                         fontSize: '14px',
                         color: 'var(--slate-700)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        minWidth: 0
+                        overflow: (selectedView || 'table') === 'list' ? 'visible' : 'hidden',
+                        textOverflow: (selectedView || 'table') === 'list' ? 'clip' : 'ellipsis',
+                        whiteSpace: (selectedView || 'table') === 'list' ? 'pre-wrap' : 'nowrap',
+                        minWidth: 0,
+                        lineHeight: (selectedView || 'table') === 'list' ? '1.5' : '1',
+                        wordBreak: (selectedView || 'table') === 'list' ? 'break-word' : 'normal'
                       }}
                     >
                       {flexRender(
@@ -881,7 +946,7 @@ const DataTable = ({
 const API_URL = 'http://localhost:8000/api/bundles';
 
 const TestReport = () => {
-  const [selectedView, setSelectedView] = useState('list');
+  const [selectedView, setSelectedView] = useState('table');
   const [selectedBundle, setSelectedBundle] = useState(null);
   const [bundleItems, setBundleItems] = useState([]);
   
@@ -1607,24 +1672,8 @@ const TestReport = () => {
               data={bundleItems}
               loading={loading}
               error={error}
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
-              selectedView={selectedView}
-              setSelectedView={setSelectedView}
-              selectedBundles={selectedBundles}
-              setSelectedBundles={setSelectedBundles}
-              selectedRecipes={selectedRecipes}
-              setSelectedRecipes={setSelectedRecipes}
-              selectedScores={selectedScores}
-              setSelectedScores={setSelectedScores}
-              isFilterOpen={isFilterOpen}
-              setIsFilterOpen={setIsFilterOpen}
-
-              bundleFilterRef={bundleFilterRef}
-              recipeFilterRef={recipeFilterRef}
-              scoreFilterRef={scoreFilterRef}
-              fetchBundleData={fetchBundleData}
-              showBundleFilter={true}
+              selectedView={selectedView || 'table'}
+              setSelectedView={setSelectedView || (() => {})}
               calculateTotalPromptCount={calculateTotalPromptCount}
               bundleItems={bundleItems}
               onVote={handleVote}
