@@ -25,10 +25,10 @@ ChartJS.register(
 const TestChart = () => {
   // Sample data for the horizontal bar chart
   const data = [
-    { name: 'MMLU', percentage: 72.5, minValue: recipe.ci_minimum_band || 65.0, maxValue: recipe.ci_maximum_band || 80.0 },
-    { name: 'Facts about Singapore', percentage: 90, minValue: recipe.ci_minimum_band || 85.0, maxValue: recipe.ci_maximum_band || 95.0 },
-    { name: 'Content Safety', percentage: 85, minValue: recipe.ci_minimum_band || 80.0, maxValue: recipe.ci_maximum_band || 90.0 },
-    { name: 'Bias Detection', percentage: 95, minValue: recipe.ci_minimum_band || 90.0, maxValue: recipe.ci_maximum_band || 98.0 }
+    { name: 'MMLU', percentage: 72.5, minValue: 65.0, maxValue: 80.0 },
+    { name: 'Facts about Singapore', percentage: 90, minValue: 85.0, maxValue: 95.0 },
+    { name: 'Content Safety', percentage: 85, minValue: 80.0, maxValue: 90.0 },
+    { name: 'Bias Detection', percentage: 95, minValue: 90.0, maxValue: 98.0 }
   ];
 
   // Chart.js configuration for horizontal bar chart
