@@ -1480,15 +1480,6 @@ const TestReport = () => {
                       </svg>
                     </div>
                     <div className="chart-content">
-                      {/* Debug: Show actual average score values */}
-                      <div style={{ fontSize: '10px', color: '#666', marginBottom: '4px', fontFamily: 'monospace', maxHeight: '60px', overflow: 'auto' }}>
-                        Debug - Recipe average scores: {bundle.recipes.map(r => {
-                          if (!r.prompts || r.prompts.length === 0) return `${r.name}: 0%`;
-                          const totalScore = getAdjustedRecipeTotalScore(r, bundle.name);
-                          const averageScore = totalScore / r.prompts.length;
-                          return `${r.name}: ${Math.round(averageScore * 100)}%`;
-                        }).join(', ')}
-                      </div>
                       <div style={{ height: '200px', width: '100%' }}>
                         {(() => {
                           const chartData = {
@@ -1582,14 +1573,14 @@ const TestReport = () => {
                             },
                             elements: {
                               bar: {
-                                barThickness: 12, // Fixed bar thickness - made thinner
-                                maxBarThickness: 12, // Maximum bar thickness
+                                barThickness: 'flex', // Allow bars to be flexible width
+                                maxBarThickness: 20, // Maximum bar thickness
                               }
                             },
                             datasets: {
                               bar: {
-                                categoryPercentage: 0.3, // Controls space between categories
-                                barPercentage: 0.6, // Controls bar width within category space
+                                categoryPercentage: 0.8, // Increase space between categories
+                                barPercentage: 0.5, // Increase bar width within category space
                               }
                             }
 
