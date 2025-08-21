@@ -1524,3 +1524,13 @@ body {
 .notes-button-save:hover {
   background-color: var(--blue-600);
 }
+
+.notes-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.notes-button-save:disabled {
+  background-color: var(--slate-400);
+  border-color: var(--slate-400);
+}

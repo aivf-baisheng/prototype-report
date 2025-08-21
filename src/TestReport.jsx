@@ -45,6 +45,7 @@ const DataTable = ({
   const [sorting, setSorting] = useState([]);
   const [editingPrompt, setEditingPrompt] = useState(null);
   const [editNote, setEditNote] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const editDropdownRef = useRef(null);
 
   // Define columns
@@ -167,10 +168,20 @@ const DataTable = ({
     if (!data) return [];
     
     const flattened = [];
+    const idCounts = new Map(); // Track how many times each ID appears
+    
+    let promptIndex = 0;
     data.forEach(bundle => {
       bundle.recipes?.forEach(recipe => {
         recipe.prompts?.forEach(prompt => {
           if (prompt) {
+            // Create a more unique ID that includes index to prevent duplicates
+            const generatedId = prompt.id || `${bundle.name}-${recipe.name}-${promptIndex}-${prompt.prompt_message.substring(0, 50)}`;
+            promptIndex++;
+            
+            // Track ID usage
+            idCounts.set(generatedId, (idCounts.get(generatedId) || 0) + 1);
+            
             flattened.push({
               bundle: bundle.name,
               recipe: recipe.name,
@@ -179,13 +190,24 @@ const DataTable = ({
               response: prompt.response,
               score: prompt.score,
               notes: prompt.notes,
-              id: prompt.id || `${bundle.name}-${recipe.name}-${prompt.prompt_message}`,
+              id: generatedId,
               verdict: null // Initialize verdict field
             });
           }
         });
       });
     });
+    
+    // Check for duplicate IDs
+    const duplicateIds = Array.from(idCounts.entries()).filter(([, count]) => count > 1);
+    if (duplicateIds.length > 0) {
+      console.warn('⚠️ WARNING: Found duplicate IDs in flattened data:', duplicateIds);
+      duplicateIds.forEach(([duplicateId, count]) => {
+        console.warn(`  ID "${duplicateId}" appears ${count} times`);
+      });
+    }
+    
+    console.log('Flattened data generated with', flattened.length, 'items');
     return flattened;
   }, [data]);
 
@@ -828,16 +850,22 @@ const DataTable = ({
                 Cancel
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (onSaveNote) {
-                    onSaveNote(editingPrompt, editNote);
+                    setIsSaving(true);
+                    try {
+                      await onSaveNote(editingPrompt, editNote);
+                    } finally {
+                      setIsSaving(false);
+                    }
                   }
                   setEditingPrompt(null);
                   setEditNote('');
                 }}
                 className="notes-button notes-button-save"
+                disabled={isSaving}
               >
-                Save
+                {isSaving ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>
@@ -859,6 +887,41 @@ const TestReport = () => {
   // For debugging
   useEffect(() => {
     console.log('Bundle items updated:', bundleItems);
+    
+    // Check for potential duplicate prompts that could cause ID conflicts
+    if (bundleItems.length > 0) {
+      const allPrompts = [];
+      bundleItems.forEach(bundle => {
+        bundle.recipes?.forEach(recipe => {
+          recipe.prompts?.forEach(prompt => {
+            allPrompts.push({
+              bundle: bundle.name,
+              recipe: recipe.name,
+              prompt_message: prompt.prompt_message,
+              id: prompt.id
+            });
+          });
+        });
+      });
+      
+      // Check for duplicate prompt messages within the same bundle/recipe combination
+      const promptGroups = new Map();
+      allPrompts.forEach(prompt => {
+        const key = `${prompt.bundle}-${prompt.recipe}-${prompt.prompt_message}`;
+        if (!promptGroups.has(key)) {
+          promptGroups.set(key, []);
+        }
+        promptGroups.get(key).push(prompt);
+      });
+      
+      const duplicates = Array.from(promptGroups.entries()).filter(([, prompts]) => prompts.length > 1);
+      if (duplicates.length > 0) {
+        console.warn('🔍 Found potential duplicate prompts that could cause ID conflicts:');
+        duplicates.forEach(([duplicateKey, prompts]) => {
+          console.warn(`  Key: "${duplicateKey}" appears ${prompts.length} times:`, prompts);
+        });
+      }
+    }
   }, [bundleItems]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1115,22 +1178,83 @@ const TestReport = () => {
 
   const handleSaveNote = async (itemId, note) => {
     try {
-      // Here you would typically make an API call to save the note
       console.log(`Saving note for prompt ${itemId}:`, note);
       
-      // For now, we'll just log the note
-      // In a real application, you would:
-      // 1. Send the note to your backend
-      // 2. Update the database
-      // 3. Optionally refresh the data or update local state
+      // Debug: Log the current bundle items structure
+      console.log('Current bundle items structure:', JSON.stringify(bundleItems, null, 2));
+      
+      // Update the local state first for immediate UI feedback
+      setBundleItems(prevBundleItems => {
+        let foundMatch = false;
+        let matchCount = 0;
+        
+        let promptIndex = 0;
+        const updatedBundleItems = prevBundleItems.map(bundle => ({
+          ...bundle,
+          recipes: bundle.recipes.map(recipe => ({
+            ...recipe,
+            prompts: recipe.prompts.map(prompt => {
+              // Use the same ID generation logic as in flattenedData
+              const promptId = prompt.id || `${bundle.name}-${recipe.name}-${promptIndex}-${prompt.prompt_message.substring(0, 50)}`;
+              promptIndex++;
+              
+              // Debug: Log each prompt ID comparison
+              console.log(`Comparing promptId: "${promptId}" with itemId: "${itemId}"`);
+              
+              if (promptId === itemId) {
+                matchCount++;
+                foundMatch = true;
+                console.log(`Found match ${matchCount} for prompt:`, prompt);
+                return { ...prompt, notes: note };
+              }
+              return prompt;
+            })
+          }))
+        }));
+        
+        console.log(`Total matches found: ${matchCount}`);
+        if (matchCount > 1) {
+          console.warn(`⚠️ WARNING: Found ${matchCount} prompts with the same ID! This could cause notes to be saved to multiple items.`);
+        }
+        if (!foundMatch) {
+          console.error(`❌ ERROR: No prompt found with ID "${itemId}"`);
+        }
+        
+        return updatedBundleItems;
+      });
+      
+      // Here you would typically make an API call to save the note to your backend
+      // Example API call (uncomment and modify as needed):
+      /*
+      const response = await fetch(`/api/prompts/${itemId}/notes`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ notes: note }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save note to backend');
+      }
+      */
       
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 100));
       
       console.log(`Note saved successfully for prompt ${itemId}`);
+      
+      // Show success feedback to user (optional)
+      // You could add a toast notification here
+      
     } catch (error) {
       console.error('Failed to save note:', error);
-      // You might want to show an error message to the user here
+      
+      // Revert the local state change if backend save failed
+      // You could add error handling UI here
+      
+      // For now, just log the error
+      console.error('Note save failed, local state reverted');
     }
   };
 
