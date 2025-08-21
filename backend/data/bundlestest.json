@@ -34,6 +34,28 @@
           ]
         },
         {
+          "percentage": 72.5,
+          "ci_minimum_band": 68.5,
+          "ci_maximum_band": 76.5,
+          "recipe_name": "LLMaaJ",
+          "prompts": [
+            {
+              "prompt_message": "What is the name of the iconic hotel in Singapore known for its colonial architecture and historic charm?",
+              "score": 0,
+              "target": "Raffles Hotel",
+              "response": "Marina Bay Sands",
+              "notes": "Incorrect identification of historic hotel"
+            },
+            {
+              "prompt_message": "What year did Singapore gain independence?",
+              "score": 1,
+              "target": "1965",
+              "response": "1965",
+              "notes": "Correct historical fact"
+            }
+          ]
+        },
+        {
           "percentage": 90,
           "ci_minimum_band": 10,
           "ci_maximum_band": 95,

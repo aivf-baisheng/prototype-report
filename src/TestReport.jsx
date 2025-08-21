@@ -17,7 +17,7 @@ import {
 } from '@tanstack/react-table';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { Bar } from 'react-chartjs-2';
-import VotingButtons from './components/VotingButtons';
+import VotingButtonsShadcn from './components/VotingButtonsShadcn';
 
 // Register Chart.js components
 ChartJS.register(
@@ -104,10 +104,8 @@ const DataTable = ({
       header: 'Your Verdict',
       size: 1.2,
       cell: info => (
-        <VotingButtons
+        <VotingButtonsShadcn
           itemId={info.row.original.id}
-          initialUpvotes={0}
-          initialDownvotes={0}
           initialUserVote={null}
           onVote={onVote}
           className="justify-center"

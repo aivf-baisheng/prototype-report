@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { Button } from '@/components/ui/button';
+import { ThumbsUp, ThumbsDown } from 'lucide-react';
 
-export default function VotingButtons({
+export default function VotingButtonsShadcn({
   itemId,
   initialUserVote = null,
   onVote,
@@ -36,84 +38,74 @@ export default function VotingButtons({
   };
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <div className={`flex items-center gap-3 ${className}`}>
       {/* Agree Button */}
-      <button
-        onClick={() => handleVote('up')}
-        disabled={disabled || isPending}
-        className={`
-          flex items-center gap-1 px-3 py-1.5 rounded-md border transition-all
-          ${userVote === 'up' 
-            ? 'bg-green-100 border-green-500 text-green-700' 
-            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-          }
-          ${disabled || isPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-        `}
-        aria-label={userVote === 'up' ? 'Remove agree vote' : 'Agree'}
-      >
-        <svg 
-          width="16" 
-          height="16" 
-          viewBox="0 0 24 24" 
-          fill="none" 
-          stroke="currentColor" 
-          strokeWidth="2"
-          className={userVote === 'up' ? 'fill-current' : ''}
+      {userVote === 'up' ? (
+        <Button
+          onClick={() => handleVote('up')}
+          disabled={disabled || isPending}
+          variant="ghost"
+          size="icon"
+          className="p-0 h-auto w-auto hover:bg-transparent transition-all duration-200"
+          aria-label="Remove agree vote"
         >
-          <path d="M7 10l5-5 5 5H7z"/>
-        </svg>
-        <span className="text-sm font-medium">
-          {userVote === 'up' ? 'Agreed' : 'Agree'}
-        </span>
-      </button>
+          <img 
+            src="/VerdictAgree.png" 
+            alt="Remove agree vote" 
+            className="object-contain hover:opacity-80 transition-opacity duration-200"
+          />
+        </Button>
+      ) : (
+        <Button
+          onClick={() => handleVote('up')}
+          disabled={disabled || isPending}
+          variant="ghost"
+          size="icon"
+          className="p-0 h-auto w-auto hover:bg-transparent transition-all duration-200"
+          aria-label="Agree"
+        >
+          <img 
+            src="/defaultagree.png" 
+            alt="Agree" 
+            className="object-contain hover:opacity-80 transition-opacity duration-200"
+          />
+        </Button>
+      )}
 
       {/* Disagree Button */}
       {userVote === 'down' ? (
-        <button
+        <Button
           onClick={() => handleVote('down')}
           disabled={disabled || isPending}
-          className={`
-            flex items-center gap-1 px-3 py-1.5 rounded-md border transition-all
-            bg-red-100 border-red-500 text-red-700
-            ${disabled || isPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-          `}
+          variant="ghost"
+          size="icon"
+          className="p-0 h-auto w-auto hover:bg-transparent transition-all duration-200"
           aria-label="Remove disagree vote"
         >
-          <svg 
-            width="16" 
-            height="16" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2"
-            className="fill-current"
-          >
-            <path d="M7 14l5 5 5-5H7z"/>
-          </svg>
-          <span className="text-sm font-medium">
-            Disagreed
-          </span>
-        </button>
+          <img 
+            src="/VerdictDisagree.png" 
+            alt="Remove disagree vote" 
+            className="object-contain hover:opacity-80 transition-opacity duration-200"
+          />
+        </Button>
       ) : (
-        <button
+        <Button
           onClick={() => handleVote('down')}
           disabled={disabled || isPending}
-          className={`
-            p-0 border-none bg-transparent transition-all
-            ${disabled || isPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:opacity-80'}
-          `}
+          variant="ghost"
+          size="icon"
+          className="p-0 h-auto w-auto hover:bg-transparent transition-all duration-200"
           aria-label="Disagree"
         >
           <img 
-            src="/src/assets/img_disagree.png" 
+            src="/defaultdisagree.png" 
             alt="Disagree" 
-            width="48" 
-            height="48"
-            className="object-contain"
+            className="object-contain hover:opacity-80 transition-opacity duration-200"
           />
-        </button>
+        </Button>
       )}
 
+      {/* Loading Spinner */}
       {isPending && (
         <div className="animate-spin h-4 w-4 border-2 border-gray-300 border-t-gray-600 rounded-full" />
       )}
@@ -142,8 +134,8 @@ export async function voteOnItem(itemId, voteType) {
 
 // Usage example in a page/component:
 /*
-import VotingButtons from '@/components/VotingButtons';
-import { voteOnItem } from '@/app/actions/voting';
+import VotingButtonsShadcn from '@/components/VotingButtonsShadcn';
+import { voteOnItem } from '@/components/VotingButtonsShadcn';
 
 export default function PostCard({ post }) {
   return (
@@ -151,7 +143,7 @@ export default function PostCard({ post }) {
       <h3>{post.title}</h3>
       <p>{post.content}</p>
       
-      <VotingButtons
+      <VotingButtonsShadcn
         itemId={post.id}
         initialUserVote={post.userVote}
         onVote={voteOnItem}

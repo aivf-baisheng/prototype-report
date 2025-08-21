@@ -1,15 +1,20 @@
+import path from 'path';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Basic Next.js configuration
   reactStrictMode: true,
-  // Enable experimental features for better compatibility
-  experimental: {
-    appDir: false,
-  },
-  // Configure webpack to handle src directory
+  // Configure webpack to handle src directory and import alias
   webpack: (config, { isServer }) => {
     // Add src directory to module resolution
     config.resolve.modules.push('src')
+    
+    // Configure alias for @ imports
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(process.cwd(), 'src')
+    }
+    
     return config
   }
 }
