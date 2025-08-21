@@ -14,10 +14,10 @@ import {
   getSortedRowModel,
   getFilteredRowModel,
   flexRender,
-  createColumnHelper,
 } from '@tanstack/react-table';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { Bar } from 'react-chartjs-2';
+import VotingButtons from './components/VotingButtons';
 
 // Register Chart.js components
 ChartJS.register(
@@ -38,10 +38,10 @@ const DataTable = ({
   loading, 
   error,
   calculateTotalPromptCount,
-  bundleItems
+  bundleItems,
+  onVote
 }) => {
   const [sorting, setSorting] = useState([]);
-  const columnHelper = createColumnHelper();
 
   // Define columns
   const columns = useMemo(() => [
@@ -99,7 +99,22 @@ const DataTable = ({
       header: 'Notes',
       size: 0.8,
     },
-  ], []);
+    {
+      accessorKey: 'verdict',
+      header: 'Your Verdict',
+      size: 1.2,
+      cell: info => (
+        <VotingButtons
+          itemId={info.row.original.id}
+          initialUpvotes={0}
+          initialDownvotes={0}
+          initialUserVote={null}
+          onVote={onVote}
+          className="justify-center"
+        />
+      ),
+    },
+  ], [onVote]);
 
   // Prepare flattened data
   const flattenedData = useMemo(() => {
@@ -118,7 +133,8 @@ const DataTable = ({
               response: prompt.response,
               score: prompt.score,
               notes: prompt.notes,
-              id: prompt.id || `${bundle.name}-${recipe.name}-${prompt.prompt_message}`
+              id: prompt.id || `${bundle.name}-${recipe.name}-${prompt.prompt_message}`,
+              verdict: null // Initialize verdict field
             });
           }
         });
@@ -944,6 +960,27 @@ const TestReport = () => {
     setSelectedBundle(null);
   };
 
+  const handleVote = async (itemId, voteType) => {
+    try {
+      // Here you would typically make an API call to save the vote
+      console.log(`Voting ${voteType} on item ${itemId}`);
+      
+      // For now, we'll just log the vote
+      // In a real application, you would:
+      // 1. Send the vote to your backend
+      // 2. Update the database
+      // 3. Optionally refresh the data or update local state
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      console.log(`Vote ${voteType} saved successfully for item ${itemId}`);
+    } catch (error) {
+      console.error('Failed to save vote:', error);
+      throw error; // Re-throw to let VotingButtons handle the error
+    }
+  };
+
   return (
     <div className="test-report-container">
 
@@ -1193,12 +1230,6 @@ const TestReport = () => {
                         })()}
                       </div>
                     </div>
-                    <div className="chart-footer">
-                      <div className="scale-line"></div>
-                      <div className="scale-labels">
-                        <span>0</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span><span>70</span><span>80</span><span>90</span><span>100</span>
-                      </div>
-                    </div>
                     <div className="confidence-legend">
                       <svg width="13" height="12" viewBox="0 0 13 12" fill="none">
                         <circle cx="6.5" cy="6" r="5.5" stroke="#334155" strokeDasharray="2 2"/>
@@ -1238,6 +1269,7 @@ const TestReport = () => {
               showBundleFilter={true}
               calculateTotalPromptCount={calculateTotalPromptCount}
               bundleItems={bundleItems}
+              onVote={handleVote}
             />
         </section>
       </main>
