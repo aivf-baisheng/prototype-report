@@ -1309,7 +1309,21 @@ const TestReport = () => {
                   <div key={index} className="bundle-item">
                     <span className="bundle-name">{bundle.name}</span>
                     <div className="success-badge">
-                      <span>{bundle.percentage}%</span>
+                      <span>{(() => {
+                        if (!bundle.recipes || bundle.recipes.length === 0) return '0%';
+                        let totalScore = 0;
+                        let totalPrompts = 0;
+                        bundle.recipes.forEach(recipe => {
+                          if (recipe.prompts && recipe.prompts.length > 0) {
+                            const recipeTotalScore = recipe.prompts.reduce((sum, prompt) => sum + prompt.score, 0);
+                            totalScore += recipeTotalScore;
+                            totalPrompts += recipe.prompts.length;
+                          }
+                        });
+                        if (totalPrompts === 0) return '0%';
+                        const averageScore = totalScore / totalPrompts;
+                        return Math.round(averageScore * 100) + '%';
+                      })()}</span>
                     </div>
                   </div>
                 ))
@@ -1319,7 +1333,22 @@ const TestReport = () => {
           <div className="divider"></div>
           <div className="metric-group">
             <span className="metric-label">Confidence</span>
-            <span className="metric-value">{calculateOverallConfidence(bundleItems)}%</span>
+            <span className="metric-value">{(() => {
+              if (!bundleItems || bundleItems.length === 0) return '0%';
+              let totalScore = 0;
+              let totalPrompts = 0;
+              bundleItems.forEach(bundle => {
+                bundle.recipes.forEach(recipe => {
+                  recipe.prompts.forEach(prompt => {
+                    totalScore += prompt.score;
+                    totalPrompts += 1;
+                  });
+                });
+              });
+              if (totalPrompts === 0) return '0%';
+              const confidence = totalScore / totalPrompts;
+              return Math.round(confidence * 100) + '%';
+            })()}</span>
           </div>
           <div className="divider"></div>
           <div className="metric-group">
@@ -1381,7 +1410,21 @@ const TestReport = () => {
                       <div className="chart-title-row">
                         <span className="chart-title">{bundle.name}</span>
                         <div className="success-badge">
-                          <span>{bundle.percentage}%</span>
+                          <span>{(() => {
+                            if (!bundle.recipes || bundle.recipes.length === 0) return '0%';
+                            let totalScore = 0;
+                            let totalPrompts = 0;
+                            bundle.recipes.forEach(recipe => {
+                              if (recipe.prompts && recipe.prompts.length > 0) {
+                                const recipeTotalScore = recipe.prompts.reduce((sum, prompt) => sum + prompt.score, 0);
+                                totalScore += recipeTotalScore;
+                                totalPrompts += recipe.prompts.length;
+                              }
+                            });
+                            if (totalPrompts === 0) return '0%';
+                            const averageScore = totalScore / totalPrompts;
+                            return Math.round(averageScore * 100) + '%';
+                          })()}</span>
                         </div>
                       </div>
                       <svg
@@ -1398,9 +1441,14 @@ const TestReport = () => {
                       </svg>
                     </div>
                     <div className="chart-content">
-                      {/* Debug: Show actual percentage values */}
+                      {/* Debug: Show actual average score values */}
                       <div style={{ fontSize: '10px', color: '#666', marginBottom: '4px', fontFamily: 'monospace', maxHeight: '60px', overflow: 'auto' }}>
-                        Debug - Recipe percentages: {bundle.recipes.map(r => `${r.name}: ${r.percentage}`).join(', ')}
+                        Debug - Recipe average scores: {bundle.recipes.map(r => {
+                          if (!r.prompts || r.prompts.length === 0) return `${r.name}: 0%`;
+                          const totalScore = r.prompts.reduce((sum, prompt) => sum + prompt.score, 0);
+                          const averageScore = totalScore / r.prompts.length;
+                          return `${r.name}: ${Math.round(averageScore * 100)}%`;
+                        }).join(', ')}
                       </div>
                       <div style={{ height: '200px', width: '100%' }}>
                         {(() => {
@@ -1409,7 +1457,12 @@ const TestReport = () => {
                             datasets: [
                               {
                                 label: 'Recipe Performance',
-                                data: bundle.recipes.map(recipe => recipe.percentage),
+                                data: bundle.recipes.map(recipe => {
+                                  if (!recipe.prompts || recipe.prompts.length === 0) return 0;
+                                  const totalScore = recipe.prompts.reduce((sum, prompt) => sum + prompt.score, 0);
+                                  const averageScore = totalScore / recipe.prompts.length;
+                                  return Math.round(averageScore * 100); // Convert to percentage
+                                }),
                                 backgroundColor: 'rgba(96, 165, 250, 1)',
                                 borderColor: 'rgba(96, 165, 250, 1)',
                                 borderWidth: 1,
@@ -1569,7 +1622,22 @@ const TestReport = () => {
                 <div className="popup-title-row">
                   <h1 className="popup-title">{selectedBundle}</h1>
                   <div className="success-badge">
-                    <span>{bundleItems.find(bundle => bundle.name === selectedBundle)?.percentage}%</span>
+                    <span>{(() => {
+                      const bundle = bundleItems.find(b => b.name === selectedBundle);
+                      if (!bundle || !bundle.recipes || bundle.recipes.length === 0) return '0%';
+                      let totalScore = 0;
+                      let totalPrompts = 0;
+                      bundle.recipes.forEach(recipe => {
+                        if (recipe.prompts && recipe.prompts.length > 0) {
+                          const recipeTotalScore = recipe.prompts.reduce((sum, prompt) => sum + prompt.score, 0);
+                          totalScore += recipeTotalScore;
+                          totalPrompts += recipe.prompts.length;
+                        }
+                      });
+                      if (totalPrompts === 0) return '0%';
+                      const averageScore = totalScore / totalPrompts;
+                      return Math.round(averageScore * 100) + '%';
+                    })()}</span>
                   </div>
                 </div>
                 <p className="popup-description">Description</p>
@@ -1600,7 +1668,12 @@ const TestReport = () => {
                         <div key={index} className="bundle-item">
                           <span className="bundle-name">{recipe.name}</span>
                           <div className="success-badge">
-                            <span>{recipe.percentage}%</span>
+                            <span>{(() => {
+                              if (!recipe.prompts || recipe.prompts.length === 0) return '0';
+                              const totalScore = recipe.prompts.reduce((sum, prompt) => sum + prompt.score, 0);
+                              const averageScore = totalScore / recipe.prompts.length;
+                              return Math.round(averageScore * 100) / 100;
+                            })()}</span>
                           </div>
                         </div>
                       ))
@@ -1610,7 +1683,23 @@ const TestReport = () => {
               <div className="divider"></div>
               <div className="metric-group">
                 <span className="metric-label">Confidence</span>
-                <span className="metric-value">{calculateBundleConfidence(selectedBundle)}%</span>
+                <span className="metric-value">{(() => {
+                  const bundle = bundleItems.find(b => b.name === selectedBundle);
+                  if (!bundle || !bundle.recipes || bundle.recipes.length === 0) return '0%';
+                  let totalScore = 0;
+                  let totalPrompts = 0;
+                  bundle.recipes.forEach(recipe => {
+                    if (recipe.prompts && recipe.prompts.length > 0) {
+                      recipe.prompts.forEach(prompt => {
+                        totalScore += prompt.score;
+                        totalPrompts += 1;
+                      });
+                    }
+                  });
+                  if (totalPrompts === 0) return '0%';
+                  const confidence = totalScore / totalPrompts;
+                  return Math.round(confidence * 100) + '%';
+                })()}</span>
               </div>
               <div className="divider"></div>
               <div className="metric-group">
