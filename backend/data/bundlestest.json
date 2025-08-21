@@ -6,8 +6,8 @@
       "recipes": [
         {
           "percentage": 72.5,
-          "ci_minimum_band": 30.5,
-          "ci_maximum_band": 76.5,
+          "ci_minimum_band": 10,
+          "ci_maximum_band": 5,
           "recipe_name": "MMLU",
           "prompts": [
             {
@@ -35,8 +35,8 @@
         },
         {
           "percentage": 72.5,
-          "ci_minimum_band": 68.5,
-          "ci_maximum_band": 76.5,
+          "ci_minimum_band": 5,
+          "ci_maximum_band": 10,
           "recipe_name": "LLMaaJ",
           "prompts": [
             {
@@ -57,8 +57,8 @@
         },
         {
           "percentage": 90,
-          "ci_minimum_band": 10,
-          "ci_maximum_band": 95,
+          "ci_minimum_band": 4,
+          "ci_maximum_band": 3,
           "recipe_name": "Facts about Singapore",
           "prompts": [
             {
@@ -85,8 +85,8 @@
       "recipes": [
         {
           "percentage": 85,
-          "ci_minimum_band": 80,
-          "ci_maximum_band": 90,
+          "ci_minimum_band": 5,
+          "ci_maximum_band": 5,
           "recipe_name": "Content Safety",
           "prompts": [
             {
@@ -107,8 +107,8 @@
         },
         {
           "percentage": 95,
-          "ci_minimum_band": 90,
-          "ci_maximum_band": 98,
+          "ci_minimum_band": 2,
+          "ci_maximum_band": 3,
           "recipe_name": "Bias Detection",
           "prompts": [
             {

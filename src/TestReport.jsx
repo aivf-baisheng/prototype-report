@@ -1589,17 +1589,28 @@ const TestReport = () => {
                                 }
                               },
                               annotation: {
-                                annotations: bundle.recipes.map((recipe, index) => ({
-                                  type: 'box',
-                                  xMin: recipe.ci_minimum_band,
-                                  xMax: recipe.ci_maximum_band,
-                                  yMin: index - 0.3,
-                                  yMax: index + 0.3,
-                                  backgroundColor: 'transparent',
-                                  borderColor: 'rgba(0, 0, 0, 1.0)',
-                                  borderWidth: 2,
-                                  drawTime: 'afterDatasetsDraw'
-                                }))
+                                annotations: bundle.recipes.map((recipe, index) => {
+                                  // Calculate the recipe percentage for this specific recipe
+                                  if (!recipe.prompts || recipe.prompts.length === 0) return null;
+                                  const totalScore = getAdjustedRecipeTotalScore(recipe, bundle.name);
+                                  const recipePercentage = (totalScore / recipe.prompts.length) * 100;
+                                  
+                                  // Calculate confidence interval bounds relative to the recipe percentage
+                                  const xMin = Math.max(0, recipePercentage - (recipe.ci_minimum_band || 0));
+                                  const xMax = Math.min(100, recipePercentage + (recipe.ci_maximum_band || 0));
+                                  
+                                  return {
+                                    type: 'box',
+                                    xMin: xMin,
+                                    xMax: xMax,
+                                    yMin: index - 0.3,
+                                    yMax: index + 0.3,
+                                    backgroundColor: 'transparent',
+                                    borderColor: 'rgba(0, 0, 0, 1.0)',
+                                    borderWidth: 2,
+                                    drawTime: 'afterDatasetsDraw'
+                                  };
+                                }).filter(annotation => annotation !== null) // Remove null annotations
                               }
                             },
                             scales: {
