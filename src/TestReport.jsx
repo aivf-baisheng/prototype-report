@@ -1659,7 +1659,7 @@ const TestReport = () => {
                       <svg width="13" height="12" viewBox="0 0 13 12" fill="none">
                         <circle cx="6.5" cy="6" r="5.5" stroke="#334155" strokeDasharray="2 2"/>
                       </svg>
-                      <span>Bundle average</span>
+                      <span>Confidence Interval</span>
                     </div>
                   </div>
                 ))
