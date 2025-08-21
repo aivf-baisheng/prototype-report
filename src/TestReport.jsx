@@ -40,7 +40,8 @@ const DataTable = ({
   calculateTotalPromptCount,
   bundleItems,
   onVote,
-  onSaveNote
+  onSaveNote,
+  userVerdicts
 }) => {
   const [sorting, setSorting] = useState([]);
   const [editingPrompt, setEditingPrompt] = useState(null);
@@ -155,7 +156,7 @@ const DataTable = ({
       cell: info => (
         <VotingButtonsShadcn
           itemId={info.row.original.id}
-          initialUserVote={null}
+          initialUserVote={userVerdicts.get(info.row.original.id) || null}
           onVote={onVote}
           className="justify-center"
         />
@@ -932,6 +933,48 @@ const TestReport = () => {
   const [selectedRecipes, setSelectedRecipes] = useState([]);
   const [selectedScores, setSelectedScores] = useState([0, 1]);  // Default scores can be set immediately
 
+  // State to store user verdicts for each item
+  const [userVerdicts, setUserVerdicts] = useState(new Map());
+
+  // Helper function to get adjusted score for percentage calculations
+  const getAdjustedScore = (originalScore, verdict) => {
+    if (verdict === 'down') {
+      // If user disagrees, invert the score: 0 becomes 1, 1 becomes 0
+      return originalScore === 1 ? 0 : 1;
+    }
+    // If user agrees or no verdict, use original score
+    return originalScore;
+  };
+
+  // Helper function to count how many scores have been adjusted
+  const getAdjustedScoreCount = () => {
+    let count = 0;
+    userVerdicts.forEach((verdict) => {
+      if (verdict === 'down') {
+        count++;
+      }
+    });
+    return count;
+  };
+
+  // Helper function to calculate adjusted total score for a recipe
+  const getAdjustedRecipeTotalScore = (recipe, bundleName) => {
+    if (!recipe.prompts || recipe.prompts.length === 0) return 0;
+    
+    return recipe.prompts.reduce((sum, prompt, promptIndex) => {
+      // Generate the same ID that was used in flattenedData
+      const generatedId = prompt.id || `${bundleName}-${recipe.name}-${promptIndex}-${prompt.prompt_message.substring(0, 50)}`;
+      
+      // Get user verdict for this prompt
+      const verdict = userVerdicts.get(generatedId);
+      
+      // Use adjusted score for calculation
+      const adjustedScore = getAdjustedScore(prompt.score, verdict);
+      
+      return sum + adjustedScore;
+    }, 0);
+  };
+
   // Function to calculate recipe percentage based on scores
   const calculateRecipePercentage = (recipe) => {
     console.log('Calculating recipe percentage for:', recipe.name, 'with prompts:', recipe.prompts);
@@ -940,7 +983,22 @@ const TestReport = () => {
       return 0;
     }
     
-    const totalScore = recipe.prompts.reduce((sum, prompt) => sum + prompt.score, 0);
+    const totalScore = recipe.prompts.reduce((sum, prompt) => {
+      // Generate the same ID that was used in flattenedData
+      const promptIndex = recipe.prompts.indexOf(prompt);
+      const generatedId = prompt.id || `${recipe.bundle || 'unknown'}-${recipe.name}-${promptIndex}-${prompt.prompt_message.substring(0, 50)}`;
+      
+      // Get user verdict for this prompt
+      const verdict = userVerdicts.get(generatedId);
+      
+      // Use adjusted score for calculation
+      const adjustedScore = getAdjustedScore(prompt.score, verdict);
+      
+      console.log(`Prompt ${generatedId}: original score=${prompt.score}, verdict=${verdict}, adjusted score=${adjustedScore}`);
+      
+      return sum + adjustedScore;
+    }, 0);
+    
     const percentage = (totalScore / recipe.prompts.length) * 100;
     const roundedPercentage = Math.round(percentage * 10) / 10;
     console.log(`Recipe ${recipe.name}: totalScore=${totalScore}, promptCount=${recipe.prompts.length}, percentage=${roundedPercentage}%`);
@@ -963,46 +1021,7 @@ const TestReport = () => {
     return roundedPercentage;
   };
 
-  // Function to calculate overall confidence based on all scores
-  const calculateOverallConfidence = (data) => {
-    if (!data || data.length === 0) return 0;
-    
-    let totalScore = 0;
-    let totalPrompts = 0;
-    
-    data.forEach(bundle => {
-      bundle.recipes.forEach(recipe => {
-        recipe.prompts.forEach(prompt => {
-          totalScore += prompt.score;
-          totalPrompts += 1;
-        });
-      });
-    });
-    
-    if (totalPrompts === 0) return 0;
-    const confidence = (totalScore / totalPrompts) * 100;
-    return Math.round(confidence * 10) / 10; // Round to 1 decimal place
-  };
 
-  // Function to calculate confidence for a specific bundle
-  const calculateBundleConfidence = (bundleName) => {
-    const bundle = bundleItems.find(b => b.name === bundleName);
-    if (!bundle) return 0;
-    
-    let totalScore = 0;
-    let totalPrompts = 0;
-    
-    bundle.recipes.forEach(recipe => {
-      recipe.prompts.forEach(prompt => {
-        totalScore += prompt.score;
-        totalPrompts += 1;
-      });
-    });
-    
-    if (totalPrompts === 0) return 0;
-    const confidence = (totalScore / totalPrompts) * 100;
-    return Math.round(confidence * 10) / 10; // Round to 1 decimal place
-  };
 
   // Function to calculate total prompts for a specific bundle
   const calculateBundlePromptCount = (bundleName) => {
@@ -1157,6 +1176,17 @@ const TestReport = () => {
 
   const handleVote = async (itemId, voteType) => {
     try {
+      // Store the verdict in local state
+      setUserVerdicts(prev => {
+        const newVerdicts = new Map(prev);
+        if (voteType === null) {
+          newVerdicts.delete(itemId);
+        } else {
+          newVerdicts.set(itemId, voteType);
+        }
+        return newVerdicts;
+      });
+
       // Here you would typically make an API call to save the vote
       console.log(`Voting ${voteType} on item ${itemId}`);
       
@@ -1315,7 +1345,7 @@ const TestReport = () => {
                         let totalPrompts = 0;
                         bundle.recipes.forEach(recipe => {
                           if (recipe.prompts && recipe.prompts.length > 0) {
-                            const recipeTotalScore = recipe.prompts.reduce((sum, prompt) => sum + prompt.score, 0);
+                            const recipeTotalScore = getAdjustedRecipeTotalScore(recipe, bundle.name);
                             totalScore += recipeTotalScore;
                             totalPrompts += recipe.prompts.length;
                           }
@@ -1339,8 +1369,17 @@ const TestReport = () => {
               let totalPrompts = 0;
               bundleItems.forEach(bundle => {
                 bundle.recipes.forEach(recipe => {
-                  recipe.prompts.forEach(prompt => {
-                    totalScore += prompt.score;
+                  recipe.prompts.forEach((prompt, promptIndex) => {
+                    // Generate the same ID that was used in flattenedData
+                    const generatedId = prompt.id || `${bundle.name}-${recipe.name}-${promptIndex}-${prompt.prompt_message.substring(0, 50)}`;
+                    
+                    // Get user verdict for this prompt
+                    const verdict = userVerdicts.get(generatedId);
+                    
+                    // Use adjusted score for calculation
+                    const adjustedScore = getAdjustedScore(prompt.score, verdict);
+                    
+                    totalScore += adjustedScore;
                     totalPrompts += 1;
                   });
                 });
@@ -1355,7 +1394,7 @@ const TestReport = () => {
             <span className="metric-label">Prompts</span>
             <div className="prompts-content">
               <span className="prompt-count">{calculateTotalPromptCount(bundleItems).toLocaleString()}</span>
-              <span className="score-adjusted">1 score adjusted</span>
+              <span className="score-adjusted">{getAdjustedScoreCount()} score{getAdjustedScoreCount() !== 1 ? 's' : ''} adjusted</span>
             </div>
           </div>
         </section>
@@ -1416,7 +1455,7 @@ const TestReport = () => {
                             let totalPrompts = 0;
                             bundle.recipes.forEach(recipe => {
                               if (recipe.prompts && recipe.prompts.length > 0) {
-                                const recipeTotalScore = recipe.prompts.reduce((sum, prompt) => sum + prompt.score, 0);
+                                const recipeTotalScore = getAdjustedRecipeTotalScore(recipe, bundle.name);
                                 totalScore += recipeTotalScore;
                                 totalPrompts += recipe.prompts.length;
                               }
@@ -1445,7 +1484,7 @@ const TestReport = () => {
                       <div style={{ fontSize: '10px', color: '#666', marginBottom: '4px', fontFamily: 'monospace', maxHeight: '60px', overflow: 'auto' }}>
                         Debug - Recipe average scores: {bundle.recipes.map(r => {
                           if (!r.prompts || r.prompts.length === 0) return `${r.name}: 0%`;
-                          const totalScore = r.prompts.reduce((sum, prompt) => sum + prompt.score, 0);
+                          const totalScore = getAdjustedRecipeTotalScore(r, bundle.name);
                           const averageScore = totalScore / r.prompts.length;
                           return `${r.name}: ${Math.round(averageScore * 100)}%`;
                         }).join(', ')}
@@ -1459,7 +1498,7 @@ const TestReport = () => {
                                 label: 'Recipe Performance',
                                 data: bundle.recipes.map(recipe => {
                                   if (!recipe.prompts || recipe.prompts.length === 0) return 0;
-                                  const totalScore = recipe.prompts.reduce((sum, prompt) => sum + prompt.score, 0);
+                                  const totalScore = getAdjustedRecipeTotalScore(recipe, bundle.name);
                                   const averageScore = totalScore / recipe.prompts.length;
                                   return Math.round(averageScore * 100); // Convert to percentage
                                 }),
@@ -1599,6 +1638,7 @@ const TestReport = () => {
               bundleItems={bundleItems}
               onVote={handleVote}
               onSaveNote={handleSaveNote}
+              userVerdicts={userVerdicts}
             />
         </section>
       </main>
@@ -1629,7 +1669,7 @@ const TestReport = () => {
                       let totalPrompts = 0;
                       bundle.recipes.forEach(recipe => {
                         if (recipe.prompts && recipe.prompts.length > 0) {
-                          const recipeTotalScore = recipe.prompts.reduce((sum, prompt) => sum + prompt.score, 0);
+                          const recipeTotalScore = getAdjustedRecipeTotalScore(recipe, bundle.name);
                           totalScore += recipeTotalScore;
                           totalPrompts += recipe.prompts.length;
                         }
@@ -1670,7 +1710,7 @@ const TestReport = () => {
                           <div className="success-badge">
                             <span>{(() => {
                               if (!recipe.prompts || recipe.prompts.length === 0) return '0';
-                              const totalScore = recipe.prompts.reduce((sum, prompt) => sum + prompt.score, 0);
+                              const totalScore = getAdjustedRecipeTotalScore(recipe, selectedBundle);
                               const averageScore = totalScore / recipe.prompts.length;
                               return Math.round(averageScore * 100) / 100;
                             })()}</span>
@@ -1690,8 +1730,17 @@ const TestReport = () => {
                   let totalPrompts = 0;
                   bundle.recipes.forEach(recipe => {
                     if (recipe.prompts && recipe.prompts.length > 0) {
-                      recipe.prompts.forEach(prompt => {
-                        totalScore += prompt.score;
+                      recipe.prompts.forEach((prompt, promptIndex) => {
+                        // Generate the same ID that was used in flattenedData
+                        const generatedId = prompt.id || `${bundle.name}-${recipe.name}-${promptIndex}-${prompt.prompt_message.substring(0, 50)}`;
+                        
+                        // Get user verdict for this prompt
+                        const verdict = userVerdicts.get(generatedId);
+                        
+                        // Use adjusted score for calculation
+                        const adjustedScore = getAdjustedScore(prompt.score, verdict);
+                        
+                        totalScore += adjustedScore;
                         totalPrompts += 1;
                       });
                     }
@@ -1706,7 +1755,7 @@ const TestReport = () => {
                 <span className="metric-label">Prompts</span>
                 <div className="prompts-content">
                   <span className="prompt-count">{calculateBundlePromptCount(selectedBundle)}</span>
-                  <span className="score-adjusted">1 score adjusted</span>
+                  <span className="score-adjusted">{getAdjustedScoreCount()} score{getAdjustedScoreCount() !== 1 ? 's' : ''} adjusted</span>
                 </div>
               </div>
             </div>
