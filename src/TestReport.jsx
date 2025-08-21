@@ -30,6 +30,41 @@ ChartJS.register(
   annotationPlugin
 );
 
+// Helper function to get adjusted score for percentage calculations
+const getAdjustedScore = (originalScore, verdict) => {
+  if (verdict === 'down') {
+    // If user disagrees, invert the score: 0 becomes 1, 1 becomes 0
+    return originalScore === 1 ? 0 : 1;
+  }
+  // If user agrees or no verdict, use original score
+  return originalScore;
+};
+
+// Helper function to generate consistent IDs across the component
+const generatePromptId = (bundleName, recipeName, promptIndex, promptMessage) => {
+  return `${bundleName}-${recipeName}-${promptIndex}-${promptMessage.substring(0, 50)}`;
+};
+
+// Helper function to get global prompt index for a specific recipe
+const getGlobalPromptIndex = (bundleItems, bundleName, recipeName) => {
+  let globalPromptIndex = 0;
+  
+  for (const bundle of bundleItems) {
+    if (bundle.name === bundleName) {
+      for (const recipe of bundle.recipes) {
+        if (recipe.name === recipeName) {
+          return globalPromptIndex;
+        }
+        globalPromptIndex += recipe.prompts?.length || 0;
+      }
+      break;
+    }
+    globalPromptIndex += bundle.recipes?.reduce((sum, r) => sum + (r.prompts?.length || 0), 0) || 0;
+  }
+  
+  return 0; // Fallback
+};
+
 
 
 
@@ -179,7 +214,7 @@ const DataTable = ({
         recipe.prompts?.forEach(prompt => {
           if (prompt) {
             // Create a more unique ID that includes index to prevent duplicates
-            const generatedId = prompt.id || `${bundle.name}-${recipe.name}-${promptIndex}-${prompt.prompt_message.substring(0, 50)}`;
+            const generatedId = prompt.id || generatePromptId(bundle.name, recipe.name, promptIndex, prompt.prompt_message);
             promptIndex++;
             
             // Track ID usage
@@ -1001,15 +1036,7 @@ const TestReport = () => {
   // State to store user verdicts for each item
   const [userVerdicts, setUserVerdicts] = useState(new Map());
 
-  // Helper function to get adjusted score for percentage calculations
-  const getAdjustedScore = (originalScore, verdict) => {
-    if (verdict === 'down') {
-      // If user disagrees, invert the score: 0 becomes 1, 1 becomes 0
-      return originalScore === 1 ? 0 : 1;
-    }
-    // If user agrees or no verdict, use original score
-    return originalScore;
-  };
+
 
   // Helper function to count how many scores have been adjusted
   const getAdjustedScoreCount = () => {
@@ -1026,9 +1053,10 @@ const TestReport = () => {
   const getAdjustedRecipeTotalScore = (recipe, bundleName) => {
     if (!recipe.prompts || recipe.prompts.length === 0) return 0;
     
-    return recipe.prompts.reduce((sum, prompt, promptIndex) => {
-      // Generate the same ID that was used in flattenedData
-      const generatedId = prompt.id || `${bundleName}-${recipe.name}-${promptIndex}-${prompt.prompt_message.substring(0, 50)}`;
+    const globalPromptIndex = getGlobalPromptIndex(bundleItems, bundleName, recipe.name);
+    
+    return recipe.prompts.reduce((sum, prompt, localIndex) => {
+      const generatedId = prompt.id || generatePromptId(bundleName, recipe.name, globalPromptIndex + localIndex, prompt.prompt_message);
       
       // Get user verdict for this prompt
       const verdict = userVerdicts.get(generatedId);
@@ -1048,10 +1076,10 @@ const TestReport = () => {
       return 0;
     }
     
-    const totalScore = recipe.prompts.reduce((sum, prompt) => {
-      // Generate the same ID that was used in flattenedData
-      const promptIndex = recipe.prompts.indexOf(prompt);
-      const generatedId = prompt.id || `${recipe.bundle || 'unknown'}-${recipe.name}-${promptIndex}-${prompt.prompt_message.substring(0, 50)}`;
+    const globalPromptIndex = getGlobalPromptIndex(bundleItems, recipe.bundle, recipe.name);
+    
+    const totalScore = recipe.prompts.reduce((sum, prompt, localIndex) => {
+      const generatedId = prompt.id || generatePromptId(recipe.bundle, recipe.name, globalPromptIndex + localIndex, prompt.prompt_message);
       
       // Get user verdict for this prompt
       const verdict = userVerdicts.get(generatedId);
@@ -1290,7 +1318,7 @@ const TestReport = () => {
             ...recipe,
             prompts: recipe.prompts.map(prompt => {
               // Use the same ID generation logic as in flattenedData
-              const promptId = prompt.id || `${bundle.name}-${recipe.name}-${promptIndex}-${prompt.prompt_message.substring(0, 50)}`;
+              const promptId = prompt.id || generatePromptId(bundle.name, recipe.name, promptIndex, prompt.prompt_message);
               promptIndex++;
               
               // Debug: Log each prompt ID comparison
@@ -1428,31 +1456,34 @@ const TestReport = () => {
           <div className="divider"></div>
           <div className="metric-group">
             <span className="metric-label">Confidence</span>
-            <span className="metric-value">{(() => {
-              if (!bundleItems || bundleItems.length === 0) return '0%';
-              let totalScore = 0;
-              let totalPrompts = 0;
-              bundleItems.forEach(bundle => {
-                bundle.recipes.forEach(recipe => {
-                  recipe.prompts.forEach((prompt, promptIndex) => {
-                    // Generate the same ID that was used in flattenedData
-                    const generatedId = prompt.id || `${bundle.name}-${recipe.name}-${promptIndex}-${prompt.prompt_message.substring(0, 50)}`;
-                    
-                    // Get user verdict for this prompt
-                    const verdict = userVerdicts.get(generatedId);
-                    
-                    // Use adjusted score for calculation
-                    const adjustedScore = getAdjustedScore(prompt.score, verdict);
-                    
-                    totalScore += adjustedScore;
-                    totalPrompts += 1;
+                          <span className="metric-value">{(() => {
+                if (!bundleItems || bundleItems.length === 0) return '0%';
+                let totalScore = 0;
+                let totalPrompts = 0;
+                let globalPromptIndex = 0;
+                
+                bundleItems.forEach(bundle => {
+                  bundle.recipes.forEach(recipe => {
+                    recipe.prompts.forEach((prompt, localIndex) => {
+                      // Generate the same ID that was used in flattenedData
+                      const generatedId = prompt.id || generatePromptId(bundle.name, recipe.name, globalPromptIndex + localIndex, prompt.prompt_message);
+                      
+                      // Get user verdict for this prompt
+                      const verdict = userVerdicts.get(generatedId);
+                      
+                      // Use adjusted score for calculation
+                      const adjustedScore = getAdjustedScore(prompt.score, verdict);
+                      
+                      totalScore += adjustedScore;
+                      totalPrompts += 1;
+                    });
+                    globalPromptIndex += recipe.prompts.length;
                   });
                 });
-              });
-              if (totalPrompts === 0) return '0%';
-              const confidence = totalScore / totalPrompts;
-              return Math.round(confidence * 100) + '%';
-            })()}</span>
+                if (totalPrompts === 0) return '0%';
+                const confidence = totalScore / totalPrompts;
+                return Math.round(confidence * 100) + '%';
+              })()}</span>
           </div>
           <div className="divider"></div>
           <div className="metric-group">
@@ -1779,23 +1810,34 @@ const TestReport = () => {
                   if (!bundle || !bundle.recipes || bundle.recipes.length === 0) return '0%';
                   let totalScore = 0;
                   let totalPrompts = 0;
-                  bundle.recipes.forEach(recipe => {
-                    if (recipe.prompts && recipe.prompts.length > 0) {
-                      recipe.prompts.forEach((prompt, promptIndex) => {
-                        // Generate the same ID that was used in flattenedData
-                        const generatedId = prompt.id || `${bundle.name}-${recipe.name}-${promptIndex}-${prompt.prompt_message.substring(0, 50)}`;
-                        
-                        // Get user verdict for this prompt
-                        const verdict = userVerdicts.get(generatedId);
-                        
-                        // Use adjusted score for calculation
-                        const adjustedScore = getAdjustedScore(prompt.score, verdict);
-                        
-                        totalScore += adjustedScore;
-                        totalPrompts += 1;
-                      });
+                  let globalPromptIndex = 0;
+                  
+                  // Calculate the global prompt index by counting prompts in previous bundles and recipes
+                  for (const b of bundleItems) {
+                    if (b.name === selectedBundle) {
+                      for (const r of b.recipes) {
+                        if (r.prompts && r.prompts.length > 0) {
+                          r.prompts.forEach((prompt, localIndex) => {
+                            // Generate the same ID that was used in flattenedData
+                            const generatedId = prompt.id || generatePromptId(bundle.name, r.name, globalPromptIndex + localIndex, prompt.prompt_message);
+                            
+                            // Get user verdict for this prompt
+                            const verdict = userVerdicts.get(generatedId);
+                            
+                            // Use adjusted score for calculation
+                            const adjustedScore = getAdjustedScore(prompt.score, verdict);
+                            
+                            totalScore += adjustedScore;
+                            totalPrompts += 1;
+                          });
+                          globalPromptIndex += r.prompts.length;
+                        }
+                      }
+                      break;
                     }
-                  });
+                    globalPromptIndex += b.recipes?.reduce((sum, r) => sum + (r.prompts?.length || 0), 0) || 0;
+                  }
+                  
                   if (totalPrompts === 0) return '0%';
                   const confidence = totalScore / totalPrompts;
                   return Math.round(confidence * 100) + '%';

@@ -1,9 +1,9 @@
-import js from '@eslint/js'
-import globals from 'globals'
-import reactHooks from 'eslint-plugin-react-hooks'
-import { defineConfig, globalIgnores } from 'eslint/config'
+const js = require('@eslint/js')
+const globals = require('globals')
+const reactHooks = require('eslint-plugin-react-hooks')
+const { defineConfig, globalIgnores } = require('eslint/config')
 
-export default defineConfig([
+module.exports = defineConfig([
   globalIgnores(['dist', '.next']),
   {
     files: ['**/*.{js,jsx}'],
